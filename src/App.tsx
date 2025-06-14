@@ -16,10 +16,9 @@ import MessagesPage from './pages/MessagesPage';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, initialized, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   
-  // Show loading while auth is initializing
-  if (!initialized || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
@@ -34,10 +33,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, initialized, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   
-  // Show loading while auth is initializing
-  if (!initialized || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
@@ -51,17 +49,15 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return !isAuthenticated ? <>{children}</> : <Navigate to="/home" replace />;
 }
 
-function AppRoutes() {
-  const { initialized, loading } = useAuth();
+function AppContent() {
+  const { loading } = useAuth();
 
-  // Show loading screen while auth is initializing
-  if (!initialized || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-white text-lg">Loading InstaCode...</p>
-          <p className="text-gray-400 text-sm">Initializing authentication...</p>
         </div>
       </div>
     );
@@ -157,7 +153,7 @@ function App() {
     <AuthProvider>
       <Router>
         <div className="min-h-screen bg-gray-900">
-          <AppRoutes />
+          <AppContent />
         </div>
       </Router>
     </AuthProvider>

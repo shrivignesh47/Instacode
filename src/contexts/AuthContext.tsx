@@ -23,7 +23,6 @@ interface User {
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
-  initialized: boolean;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -46,7 +45,6 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [initialized, setInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const convertSupabaseUser = async (supabaseUser: SupabaseUser): Promise<User | null> => {
@@ -81,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             year: 'numeric', 
             month: 'long' 
           }),
-          verified: false, // You can add a verified field to the database later
+          verified: false,
         };
       } else {
         const username = supabaseUser.user_metadata?.username || supabaseUser.email?.split('@')[0] || 'user';
@@ -161,7 +159,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'User not authenticated' };
       }
 
-      // Map User interface fields to database column names
       const updateData: any = {};
       
       if (profileData.username) updateData.username = profileData.username;
@@ -186,7 +183,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: error.message };
       }
 
-      // Update the current user state
       const updatedUser = await convertSupabaseUser({ 
         id: user.id, 
         email: user.email,
@@ -290,7 +286,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
@@ -320,14 +315,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Login error:', error);
       return { success: false, error: 'An unexpected error occurred. Please try again.' };
-    } finally {
-      setLoading(false);
     }
   };
 
   const signup = async (username: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      setLoading(true);
       if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
         return {
           success: false,
@@ -384,14 +376,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Signup error:', error);
       return { success: false, error: 'An unexpected error occurred. Please try again.' };
-    } finally {
-      setLoading(false);
     }
   };
 
   const logout = async (): Promise<void> => {
     try {
-      setLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Logout error:', error);
@@ -401,7 +390,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setUser(null);
       setIsAuthenticated(false);
-      setLoading(false);
     }
   };
 
@@ -411,35 +399,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initializeAuth = async () => {
       try {
-        console.log('Initializing auth...');
-        setLoading(true);
-        
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error getting session:', error);
-        }
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (mounted) {
           if (session?.user) {
-            console.log('Session found, converting user...');
             const convertedUser = await convertSupabaseUser(session.user);
             if (convertedUser && mounted) {
-              console.log('User converted successfully:', convertedUser.username);
               setUser(convertedUser);
               setIsAuthenticated(true);
             }
-          } else {
-            console.log('No session found');
           }
-          
-          setInitialized(true);
           setLoading(false);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
         if (mounted) {
-          setInitialized(true);
           setLoading(false);
         }
       }
@@ -449,11 +423,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session: Session | null) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        
         if (!mounted) return;
-
-        setLoading(true);
 
         if (session?.user) {
           const convertedUser = await convertSupabaseUser(session.user);
@@ -466,10 +436,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(null);
             setIsAuthenticated(false);
           }
-        }
-
-        if (mounted) {
-          setLoading(false);
         }
       }
     );
@@ -484,7 +450,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider value={{ 
       isAuthenticated, 
       user, 
-      initialized,
       loading,
       login, 
       signup, 
