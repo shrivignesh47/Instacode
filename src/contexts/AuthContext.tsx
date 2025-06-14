@@ -19,7 +19,6 @@ interface User {
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
-  loading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -38,7 +37,6 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const convertSupabaseUser = async (supabaseUser: SupabaseUser): Promise<User | null> => {
     try {
@@ -239,7 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // ✅ Modified: Don't touch `loading` in auth change
+  // Listen for auth state changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session: Session | null) => {
@@ -262,7 +260,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  // ✅ Only show loading spinner during first session check
+  // Initial session check
   useEffect(() => {
     const getInitialSession = async () => {
       try {
@@ -276,15 +274,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error('Error getting initial session:', error);
-      } finally {
-        setLoading(false);
       }
     };
     getInitialSession();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
