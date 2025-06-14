@@ -16,15 +16,125 @@ import MessagesPage from './pages/MessagesPage';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, initialized } = useAuth();
+  
+  // Wait for auth to initialize before making routing decisions
+  if (!initialized) {
+    return null;
+  }
   
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, initialized } = useAuth();
+  
+  // Wait for auth to initialize before making routing decisions
+  if (!initialized) {
+    return null;
+  }
   
   return !isAuthenticated ? <>{children}</> : <Navigate to="/home" />;
+}
+
+function AppRoutes() {
+  const { initialized } = useAuth();
+
+  // Show loading screen while auth is initializing
+  if (!initialized) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-white text-lg">Loading InstaCode...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to="/login" />} />
+      <Route path="/login" element={
+        <PublicRoute>
+          <LoginPage />
+        </PublicRoute>
+      } />
+      <Route path="/signup" element={
+        <PublicRoute>
+          <SignupPage />
+        </PublicRoute>
+      } />
+      <Route path="/home" element={
+        <ProtectedRoute>
+          <Layout>
+            <HomePage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/explore" element={
+        <ProtectedRoute>
+          <Layout>
+            <ExplorePage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/create" element={
+        <ProtectedRoute>
+          <Layout>
+            <CreatePage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/forums" element={
+        <ProtectedRoute>
+          <Layout>
+            <ForumsPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/communities" element={
+        <ProtectedRoute>
+          <Layout>
+            <CommunitiesPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/saved" element={
+        <ProtectedRoute>
+          <Layout>
+            <SavedPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/trending" element={
+        <ProtectedRoute>
+          <Layout>
+            <TrendingPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/settings" element={
+        <ProtectedRoute>
+          <Layout>
+            <SettingsPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/messages" element={
+        <ProtectedRoute>
+          <MessagesPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/profile/:username" element={
+        <ProtectedRoute>
+          <Layout>
+            <ProfilePage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+    </Routes>
+  );
 }
 
 function App() {
@@ -32,87 +142,7 @@ function App() {
     <AuthProvider>
       <Router>
         <div className="min-h-screen bg-gray-900">
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" />} />
-            <Route path="/login" element={
-              <PublicRoute>
-                <LoginPage />
-              </PublicRoute>
-            } />
-            <Route path="/signup" element={
-              <PublicRoute>
-                <SignupPage />
-              </PublicRoute>
-            } />
-            <Route path="/home" element={
-              <ProtectedRoute>
-                <Layout>
-                  <HomePage />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/explore" element={
-              <ProtectedRoute>
-                <Layout>
-                  <ExplorePage />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/create" element={
-              <ProtectedRoute>
-                <Layout>
-                  <CreatePage />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/forums" element={
-              <ProtectedRoute>
-                <Layout>
-                  <ForumsPage />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/communities" element={
-              <ProtectedRoute>
-                <Layout>
-                  <CommunitiesPage />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/saved" element={
-              <ProtectedRoute>
-                <Layout>
-                  <SavedPage />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/trending" element={
-              <ProtectedRoute>
-                <Layout>
-                  <TrendingPage />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <Layout>
-                  <SettingsPage />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/messages" element={
-              <ProtectedRoute>
-                <MessagesPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/profile/:username" element={
-              <ProtectedRoute>
-                <Layout>
-                  <ProfilePage />
-                </Layout>
-              </ProtectedRoute>
-            } />
-          </Routes>
+          <AppRoutes />
         </div>
       </Router>
     </AuthProvider>

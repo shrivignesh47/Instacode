@@ -23,6 +23,7 @@ interface User {
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
+  initialized: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -447,7 +448,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Don't render anything until auth is initialized
+  // Safety measure: Don't render anything until auth is initialized
+  // The main loading indicator is handled by AppRoutes component
   if (!initialized) {
     return null;
   }
@@ -456,6 +458,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider value={{ 
       isAuthenticated, 
       user, 
+      initialized,
       login, 
       signup, 
       logout, 
