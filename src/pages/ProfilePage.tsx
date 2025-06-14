@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ArrowLeft,
@@ -23,114 +23,173 @@ import {
   ExternalLink,
   Linkedin,
   Twitter,
-  Globe
+  Globe,
+  MessageCircle,
+  Loader
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase, type PostWithUser } from '../lib/supabaseClient';
+import PostCard from '../components/PostCard';
 
 const ProfilePage = () => {
   const { username } = useParams();
-  const { user } = useAuth();
+  const { user, fetchProfileByUsername, updateProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'posts' | 'projects' | 'code' | 'media'>('posts');
   const [isFollowing, setIsFollowing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<PostWithUser[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
   
+  const [profileData, setProfileData] = useState<any>(null);
   const isOwnProfile = user?.username === username;
 
-  // Mock profile data
-  const [profileData, setProfileData] = useState({
-    username: username || 'johndoe',
-    displayName: 'johndoe',
-    bio: 'Full-stack developer passionate about React and Node.js',
-    avatar: 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=300',
-    verified: true,
-    posts: 2,
-    followers: 1234,
-    following: 567,
-    location: 'San Francisco, CA',
-    website: 'https://johndoe.dev',
-    joinDate: 'March 2022',
-    githubUrl: 'https://github.com/johndoe',
-    leetcodeUrl: 'https://leetcode.com/johndoe',
-    hackerrankUrl: 'https://hackerrank.com/johndoe',
-    linkedinUrl: 'https://linkedin.com/in/johndoe',
-    twitterUrl: 'https://twitter.com/johndoe',
-    codeforceUrl: 'https://codeforces.com/profile/johndoe',
-  });
-
   const [editProfileData, setEditProfileData] = useState({
-    displayName: '',
+    username: '',
     bio: '',
     location: '',
     website: '',
     githubUrl: '',
-    leetcodeUrl: '',
-    hackerrankUrl: '',
     linkedinUrl: '',
     twitterUrl: '',
-    codeforceUrl: '',
   });
 
+  // Fetch profile data
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!username) return;
+      
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const profile = await fetchProfileByUsername(username);
+        if (profile) {
+          setProfileData(profile);
+        } else {
+          setError('User not found');
+        }
+      } catch (err) {
+        console.error('Error loading profile:', err);
+        setError('Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [username, fetchProfileByUsername]);
+
+  // Fetch user posts
+  useEffect(() => {
+    const loadPosts = async () => {
+      if (!profileData?.id) return;
+      
+      setPostsLoading(true);
+      try {
+        const { data: postsData, error: postsError } = await supabase
+          .from('posts')
+          .select(`
+            *,
+            profiles (
+              id,
+              username,
+              avatar_url
+            )
+          `)
+          .eq('user_id', profileData.id)
+          .order('created_at', { ascending: false });
+
+        if (postsError) {
+          throw postsError;
+        }
+
+        // Check which posts the current user has liked
+        let postsWithLikes = postsData || [];
+        if (user) {
+          const { data: likesData } = await supabase
+            .from('likes')
+            .select('post_id')
+            .eq('user_id', user.id);
+
+          const likedPostIds = new Set(likesData?.map(like => like.post_id) || []);
+          
+          postsWithLikes = postsData?.map(post => ({
+            ...post,
+            user_liked: likedPostIds.has(post.id)
+          })) || [];
+        }
+
+        setPosts(postsWithLikes as PostWithUser[]);
+      } catch (err) {
+        console.error('Error loading posts:', err);
+      } finally {
+        setPostsLoading(false);
+      }
+    };
+
+    loadPosts();
+  }, [profileData?.id, user]);
+
   const handleEditProfile = () => {
+    if (!profileData) return;
+    
     setEditProfileData({
-      displayName: profileData.displayName,
+      username: profileData.username,
       bio: profileData.bio,
       location: profileData.location,
       website: profileData.website,
       githubUrl: profileData.githubUrl,
-      leetcodeUrl: profileData.leetcodeUrl,
-      hackerrankUrl: profileData.hackerrankUrl,
       linkedinUrl: profileData.linkedinUrl,
       twitterUrl: profileData.twitterUrl,
-      codeforceUrl: profileData.codeforceUrl,
     });
     setIsEditing(true);
   };
 
-  const handleSaveProfile = () => {
-    console.log('Saving profile data:', editProfileData);
-    setProfileData({
-      ...profileData,
-      ...editProfileData,
-    });
-    setIsEditing(false);
+  const handleSaveProfile = async () => {
+    try {
+      const result = await updateProfile(editProfileData);
+      
+      if (result.success) {
+        // Refresh profile data
+        const updatedProfile = await fetchProfileByUsername(username!);
+        if (updatedProfile) {
+          setProfileData(updatedProfile);
+        }
+        setIsEditing(false);
+      } else {
+        setError(result.error || 'Failed to update profile');
+      }
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      setError('Failed to update profile');
+    }
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditProfileData({
-      displayName: '',
+      username: '',
       bio: '',
       location: '',
       website: '',
       githubUrl: '',
-      leetcodeUrl: '',
-      hackerrankUrl: '',
       linkedinUrl: '',
       twitterUrl: '',
-      codeforceUrl: '',
     });
   };
 
-  const mockPosts = [
-    {
-      id: 1,
-      type: 'code',
-      title: 'Building a beautiful React component with TypeScript! 🚀',
-      content: 'interface ButtonProps {\n  children: React.ReactNode;\n  variant?: "primary" | "secondary";\n  onClick?: () => void;\n}',
-      language: 'typescript',
-      tags: ['#react', '#typescript', '#frontend'],
-      timeAgo: '1h ago',
-      likes: 45,
-      comments: 12,
-      shares: 8,
-    },
-  ];
+  const handleStartConversation = () => {
+    // Navigate to messages with the user
+    window.location.href = `/messages?user=${profileData.username}`;
+  };
 
   const tabs = [
-    { id: 'posts', label: 'All Posts', icon: Users, count: profileData.posts },
-    { id: 'projects', label: 'Projects', icon: FolderOpen, count: 0 },
-    { id: 'code', label: 'Code', icon: Code, count: 1 },
-    { id: 'media', label: 'Media', icon: ImageIcon, count: 0 },
+    { id: 'posts', label: 'All Posts', icon: Users, count: profileData?.posts || 0 },
+    { id: 'projects', label: 'Projects', icon: FolderOpen, count: posts.filter(p => p.type === 'project').length },
+    { id: 'code', label: 'Code', icon: Code, count: posts.filter(p => p.type === 'code').length },
+    { id: 'media', label: 'Media', icon: ImageIcon, count: posts.filter(p => p.type === 'image' || p.type === 'video').length },
   ];
 
   const codingPlatforms = [
@@ -139,24 +198,6 @@ const ProfilePage = () => {
       icon: Github, 
       key: 'githubUrl',
       color: 'hover:bg-gray-700'
-    },
-    { 
-      name: 'LeetCode', 
-      icon: Code, 
-      key: 'leetcodeUrl',
-      color: 'hover:bg-yellow-600'
-    },
-    { 
-      name: 'HackerRank', 
-      icon: Award, 
-      key: 'hackerrankUrl',
-      color: 'hover:bg-green-600'
-    },
-    { 
-      name: 'Codeforces', 
-      icon: Code, 
-      key: 'codeforceUrl',
-      color: 'hover:bg-blue-600'
     },
     { 
       name: 'LinkedIn', 
@@ -171,6 +212,59 @@ const ProfilePage = () => {
       color: 'hover:bg-blue-600'
     },
   ];
+
+  const getFilteredPosts = () => {
+    switch (activeTab) {
+      case 'projects':
+        return posts.filter(post => post.type === 'project');
+      case 'code':
+        return posts.filter(post => post.type === 'code');
+      case 'media':
+        return posts.filter(post => post.type === 'image' || post.type === 'video');
+      default:
+        return posts;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 lg:px-0">
+        <div className="flex items-center justify-center py-12">
+          <div className="flex items-center space-x-3">
+            <Loader className="w-8 h-8 text-purple-500 animate-spin" />
+            <span className="text-white text-lg">Loading profile...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !profileData) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 lg:px-0">
+        <div className="flex items-center space-x-4 mb-6">
+          <Link 
+            to="/home" 
+            className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="hidden sm:inline">Back to Feed</span>
+          </Link>
+        </div>
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Users className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-xl font-medium text-gray-400 mb-2">
+            {error || 'User not found'}
+          </h3>
+          <p className="text-gray-500">
+            The profile you're looking for doesn't exist or has been removed.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 lg:px-0">
@@ -193,7 +287,7 @@ const ProfilePage = () => {
             <div className="w-32 h-32 lg:w-40 lg:h-40 rounded-full border-4 border-purple-500 p-1">
               <img
                 src={profileData.avatar}
-                alt={profileData.displayName}
+                alt={profileData.username}
                 className="w-full h-full rounded-full object-cover"
               />
             </div>
@@ -211,14 +305,14 @@ const ProfilePage = () => {
                 {isEditing ? (
                   <input
                     type="text"
-                    value={editProfileData.displayName}
-                    onChange={(e) => setEditProfileData({ ...editProfileData, displayName: e.target.value })}
+                    value={editProfileData.username}
+                    onChange={(e) => setEditProfileData({ ...editProfileData, username: e.target.value })}
                     className="text-2xl lg:text-3xl font-bold text-white bg-gray-700 border border-gray-600 rounded px-3 py-1 mb-2"
-                    placeholder="Display Name"
+                    placeholder="Username"
                   />
                 ) : (
                   <h1 className="text-2xl lg:text-3xl font-bold text-white mb-1">
-                    {profileData.displayName}
+                    {profileData.username}
                   </h1>
                 )}
                 
@@ -235,12 +329,12 @@ const ProfilePage = () => {
                 )}
               </div>
               
-              {/* Action Button */}
-              <div className="mt-4 sm:mt-0">
+              {/* Action Buttons */}
+              <div className="mt-4 sm:mt-0 flex space-x-2">
                 {isOwnProfile ? (
                   <>
                     {isEditing ? (
-                      <div className="flex space-x-2">
+                      <>
                         <button
                           onClick={handleSaveProfile}
                           className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
@@ -255,7 +349,7 @@ const ProfilePage = () => {
                           <X className="w-4 h-4" />
                           <span>Cancel</span>
                         </button>
-                      </div>
+                      </>
                     ) : (
                       <button
                         onClick={handleEditProfile}
@@ -267,26 +361,35 @@ const ProfilePage = () => {
                     )}
                   </>
                 ) : (
-                  <button
-                    onClick={() => setIsFollowing(!isFollowing)}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                      isFollowing
-                        ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                        : 'bg-purple-600 hover:bg-purple-700 text-white'
-                    }`}
-                  >
-                    {isFollowing ? (
-                      <>
-                        <UserCheck className="w-4 h-4" />
-                        <span>Following</span>
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-4 h-4" />
-                        <span>Follow</span>
-                      </>
-                    )}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setIsFollowing(!isFollowing)}
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                        isFollowing
+                          ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                          : 'bg-purple-600 hover:bg-purple-700 text-white'
+                      }`}
+                    >
+                      {isFollowing ? (
+                        <>
+                          <UserCheck className="w-4 h-4" />
+                          <span>Following</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4" />
+                          <span>Follow</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={handleStartConversation}
+                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>Message</span>
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -443,139 +546,50 @@ const ProfilePage = () => {
 
       {/* Content */}
       <div>
-        {activeTab === 'posts' && (
-          <div className="space-y-6">
-            {mockPosts.map((post) => (
-              <div key={post.id} className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                {/* Post Header */}
-                <div className="p-4 flex items-center space-x-3">
-                  <img
-                    src={profileData.avatar}
-                    alt={profileData.displayName}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-white">{profileData.displayName}</span>
-                      {profileData.verified && (
-                        <CheckCircle className="w-4 h-4 text-blue-500" />
-                      )}
-                    </div>
-                    <span className="text-sm text-gray-400">{post.timeAgo}</span>
-                  </div>
-                </div>
-
-                {/* Post Content */}
-                <div className="px-4 pb-4">
-                  <p className="text-white mb-3">{post.title}</p>
-                  
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {post.tags.map((tag) => (
-                      <span key={tag} className="text-purple-400 text-sm hover:text-purple-300 cursor-pointer">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Code Block */}
-                  {post.type === 'code' && (
-                    <div className="bg-gray-900 rounded-lg overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-2 bg-gray-700">
-                        <span className="text-sm text-gray-300 capitalize">{post.language}</span>
-                        <button className="flex items-center space-x-1 px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
-                          <Play className="w-3 h-3" />
-                          <span>Run</span>
-                        </button>
-                      </div>
-                      <div className="p-4">
-                        <pre className="text-sm text-gray-300 overflow-x-auto">
-                          <code>{post.content}</code>
-                        </pre>
-                      </div>
-                    </div>
+        {postsLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex items-center space-x-3">
+              <Loader className="w-6 h-6 text-purple-500 animate-spin" />
+              <span className="text-white">Loading posts...</span>
+            </div>
+          </div>
+        ) : (
+          <>
+            {getFilteredPosts().length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                  {activeTab === 'projects' ? (
+                    <FolderOpen className="w-8 h-8 text-gray-400" />
+                  ) : activeTab === 'code' ? (
+                    <Code className="w-8 h-8 text-gray-400" />
+                  ) : activeTab === 'media' ? (
+                    <ImageIcon className="w-8 h-8 text-gray-400" />
+                  ) : (
+                    <Users className="w-8 h-8 text-gray-400" />
                   )}
                 </div>
+                <h3 className="text-xl font-medium text-gray-400 mb-2">
+                  No {activeTab} yet
+                </h3>
+                <p className="text-gray-500">
+                  {activeTab === 'projects' 
+                    ? 'Projects will appear here when shared' 
+                    : activeTab === 'code'
+                    ? 'Code snippets will appear here when shared'
+                    : activeTab === 'media'
+                    ? 'Images and videos will appear here when shared'
+                    : 'Posts will appear here when shared'
+                  }
+                </p>
               </div>
-            ))}
-          </div>
-        )}
-
-        {(activeTab === 'projects' || activeTab === 'media') && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              {activeTab === 'projects' ? (
-                <FolderOpen className="w-8 h-8 text-gray-400" />
-              ) : (
-                <ImageIcon className="w-8 h-8 text-gray-400" />
-              )}
-            </div>
-            <h3 className="text-xl font-medium text-gray-400 mb-2">
-              No {activeTab} yet
-            </h3>
-            <p className="text-gray-500">
-              {activeTab === 'projects' 
-                ? 'Projects will appear here when shared' 
-                : 'Media posts will appear here when shared'
-              }
-            </p>
-          </div>
-        )}
-
-        {activeTab === 'code' && (
-          <div className="space-y-6">
-            {mockPosts.filter(post => post.type === 'code').map((post) => (
-              <div key={post.id} className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                {/* Post Header */}
-                <div className="p-4 flex items-center space-x-3">
-                  <img
-                    src={profileData.avatar}
-                    alt={profileData.displayName}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-white">{profileData.displayName}</span>
-                      {profileData.verified && (
-                        <CheckCircle className="w-4 h-4 text-blue-500" />
-                      )}
-                    </div>
-                    <span className="text-sm text-gray-400">{post.timeAgo}</span>
-                  </div>
-                </div>
-
-                {/* Post Content */}
-                <div className="px-4 pb-4">
-                  <p className="text-white mb-3">{post.title}</p>
-                  
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {post.tags.map((tag) => (
-                      <span key={tag} className="text-purple-400 text-sm hover:text-purple-300 cursor-pointer">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Code Block */}
-                  <div className="bg-gray-900 rounded-lg overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-2 bg-gray-700">
-                      <span className="text-sm text-gray-300 capitalize">{post.language}</span>
-                      <button className="flex items-center space-x-1 px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
-                        <Play className="w-3 h-3" />
-                        <span>Run</span>
-                      </button>
-                    </div>
-                    <div className="p-4">
-                      <pre className="text-sm text-gray-300 overflow-x-auto">
-                        <code>{post.content}</code>
-                      </pre>
-                    </div>
-                  </div>
-                </div>
+            ) : (
+              <div className="space-y-6">
+                {getFilteredPosts().map((post) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>

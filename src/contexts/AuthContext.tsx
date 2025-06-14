@@ -11,9 +11,13 @@ interface User {
   githubUrl: string;
   linkedinUrl: string;
   twitterUrl: string;
+  website: string;
+  location: string;
   followers: number;
   following: number;
   posts: number;
+  joinDate: string;
+  verified: boolean;
 }
 
 interface AuthContextType {
@@ -22,6 +26,9 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  fetchProfileByUsername: (username: string) => Promise<User | null>;
+  updateProfile: (profileData: Partial<User>) => Promise<{ success: boolean; error?: string }>;
+  searchUsers: (query: string) => Promise<User[]>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,9 +69,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           githubUrl: profile.github_url || '',
           linkedinUrl: profile.linkedin_url || '',
           twitterUrl: profile.twitter_url || '',
+          website: profile.website || '',
+          location: profile.location || '',
           followers: profile.followers_count || 0,
           following: profile.following_count || 0,
           posts: profile.posts_count || 0,
+          joinDate: new Date(profile.created_at).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long' 
+          }),
+          verified: false, // You can add a verified field to the database later
         };
       } else {
         const username = supabaseUser.user_metadata?.username || supabaseUser.email?.split('@')[0] || 'user';
@@ -77,14 +91,156 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           githubUrl: '',
           linkedinUrl: '',
           twitterUrl: '',
+          website: '',
+          location: '',
           followers: 0,
           following: 0,
           posts: 0,
+          joinDate: new Date().toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long' 
+          }),
+          verified: false,
         };
       }
     } catch (error) {
       console.error('Error converting Supabase user:', error);
       return null;
+    }
+  };
+
+  const fetchProfileByUsername = async (username: string): Promise<User | null> => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('username', username)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile by username:', error);
+        return null;
+      }
+
+      if (profile) {
+        return {
+          id: profile.id,
+          username: profile.username,
+          email: profile.email,
+          avatar: profile.avatar_url || 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=150',
+          bio: profile.bio || '',
+          githubUrl: profile.github_url || '',
+          linkedinUrl: profile.linkedin_url || '',
+          twitterUrl: profile.twitter_url || '',
+          website: profile.website || '',
+          location: profile.location || '',
+          followers: profile.followers_count || 0,
+          following: profile.following_count || 0,
+          posts: profile.posts_count || 0,
+          joinDate: new Date(profile.created_at).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long' 
+          }),
+          verified: false,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error in fetchProfileByUsername:', error);
+      return null;
+    }
+  };
+
+  const updateProfile = async (profileData: Partial<User>): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Map User interface fields to database column names
+      const updateData: any = {};
+      
+      if (profileData.username) updateData.username = profileData.username;
+      if (profileData.email) updateData.email = profileData.email;
+      if (profileData.bio !== undefined) updateData.bio = profileData.bio;
+      if (profileData.location !== undefined) updateData.location = profileData.location;
+      if (profileData.website !== undefined) updateData.website = profileData.website;
+      if (profileData.githubUrl !== undefined) updateData.github_url = profileData.githubUrl;
+      if (profileData.linkedinUrl !== undefined) updateData.linkedin_url = profileData.linkedinUrl;
+      if (profileData.twitterUrl !== undefined) updateData.twitter_url = profileData.twitterUrl;
+      if (profileData.avatar !== undefined) updateData.avatar_url = profileData.avatar;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating profile:', error);
+        return { success: false, error: error.message };
+      }
+
+      // Update the current user state
+      const updatedUser = await convertSupabaseUser({ 
+        id: user.id, 
+        email: user.email,
+        user_metadata: {}
+      } as SupabaseUser);
+      
+      if (updatedUser) {
+        setUser(updatedUser);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error in updateProfile:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  };
+
+  const searchUsers = async (query: string): Promise<User[]> => {
+    try {
+      if (!query.trim()) {
+        return [];
+      }
+
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`username.ilike.%${query}%,email.ilike.%${query}%`)
+        .limit(10);
+
+      if (error) {
+        console.error('Error searching users:', error);
+        return [];
+      }
+
+      return profiles.map(profile => ({
+        id: profile.id,
+        username: profile.username,
+        email: profile.email,
+        avatar: profile.avatar_url || 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=150',
+        bio: profile.bio || '',
+        githubUrl: profile.github_url || '',
+        linkedinUrl: profile.linkedin_url || '',
+        twitterUrl: profile.twitter_url || '',
+        website: profile.website || '',
+        location: profile.location || '',
+        followers: profile.followers_count || 0,
+        following: profile.following_count || 0,
+        posts: profile.posts_count || 0,
+        joinDate: new Date(profile.created_at).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long' 
+        }),
+        verified: false,
+      }));
+    } catch (error) {
+      console.error('Error in searchUsers:', error);
+      return [];
     }
   };
 
@@ -297,7 +453,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, signup, logout }}>
+    <AuthContext.Provider value={{ 
+      isAuthenticated, 
+      user, 
+      login, 
+      signup, 
+      logout, 
+      fetchProfileByUsername, 
+      updateProfile, 
+      searchUsers 
+    }}>
       {children}
     </AuthContext.Provider>
   );
