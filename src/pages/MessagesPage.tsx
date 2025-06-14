@@ -151,8 +151,7 @@ const MessagesPage = () => {
           participant_2,
           last_message_at,
           profiles!conversations_participant_1_fkey(id, username, avatar_url, bio),
-          profiles_participant_2:profiles!conversations_participant_2_fkey(id, username, avatar_url, bio),
-          messages!conversations_last_message_id_fkey(content, message_type, sender_id)
+          profiles_participant_2:profiles!conversations_participant_2_fkey(id, username, avatar_url, bio)
         `)
         .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`)
         .order('last_message_at', { ascending: false });
@@ -178,11 +177,6 @@ const MessagesPage = () => {
             avatar_url: otherUser.avatar_url || '',
             bio: otherUser.bio || ''
           },
-          last_message: conv.messages ? {
-            content: conv.messages.content,
-            message_type: conv.messages.message_type,
-            sender_id: conv.messages.sender_id
-          } : undefined,
           unread_count: 0 // TODO: Calculate unread count
         };
       });
