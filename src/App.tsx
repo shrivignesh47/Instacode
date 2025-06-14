@@ -16,37 +16,52 @@ import MessagesPage from './pages/MessagesPage';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, initialized } = useAuth();
+  const { isAuthenticated, initialized, loading } = useAuth();
   
-  // Wait for auth to initialize before making routing decisions
-  if (!initialized) {
-    return null;
+  // Show loading while auth is initializing
+  if (!initialized || loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-white">Loading...</p>
+        </div>
+      </div>
+    );
   }
   
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, initialized } = useAuth();
+  const { isAuthenticated, initialized, loading } = useAuth();
   
-  // Wait for auth to initialize before making routing decisions
-  if (!initialized) {
-    return null;
+  // Show loading while auth is initializing
+  if (!initialized || loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-white">Loading...</p>
+        </div>
+      </div>
+    );
   }
   
-  return !isAuthenticated ? <>{children}</> : <Navigate to="/home" />;
+  return !isAuthenticated ? <>{children}</> : <Navigate to="/home" replace />;
 }
 
 function AppRoutes() {
-  const { initialized } = useAuth();
+  const { initialized, loading } = useAuth();
 
   // Show loading screen while auth is initializing
-  if (!initialized) {
+  if (!initialized || loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-white text-lg">Loading InstaCode...</p>
+          <p className="text-gray-400 text-sm">Initializing authentication...</p>
         </div>
       </div>
     );
@@ -54,7 +69,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={
         <PublicRoute>
           <LoginPage />
