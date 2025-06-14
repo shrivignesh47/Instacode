@@ -19,7 +19,8 @@ import {
   Code,
   FolderOpen,
   Heart,
-  Share
+  Share,
+  User
 } from 'lucide-react';
 import Layout from '../components/Layout';
 import UserSearchModal from '../components/UserSearchModal';
@@ -99,6 +100,7 @@ const MessagesPage = () => {
           table: 'messages'
         },
         (payload) => {
+          console.log('Message change:', payload);
           if (payload.eventType === 'INSERT') {
             handleNewMessage(payload.new as any);
           }
@@ -169,7 +171,7 @@ const MessagesPage = () => {
           id: conv.id,
           participant_1: conv.participant_1,
           participant_2: conv.participant_2,
-          last_message_at: conv.last_message_at,
+          last_message_at: conv.last_message_at || new Date().toISOString(),
           other_user: {
             id: otherUser.id,
             username: otherUser.username,
@@ -259,8 +261,8 @@ const MessagesPage = () => {
 
     try {
       const { error } = await supabase
-        .rpc('mark_message_as_read', {
-          message_id: messages[messages.length - 1]?.id,
+        .rpc('mark_messages_as_read', {
+          conv_id: conversationId,
           user_id: user.id
         });
 

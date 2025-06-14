@@ -117,12 +117,12 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
             </Link>
 
             {/* Mobile Messages Button */}
-            <button
-              onClick={onMobileRightSidebarToggle}
+            <Link
+              to="/messages"
               className="lg:hidden p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700"
             >
               <MessageCircle className="w-5 h-5" />
-            </button>
+            </Link>
 
             {/* Profile Menu */}
             <div className="relative">

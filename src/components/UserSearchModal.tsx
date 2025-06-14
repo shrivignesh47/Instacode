@@ -136,9 +136,6 @@ const UserSearchModal: React.FC<UserSearchModalProps> = ({
     if (onUserSelect) {
       onUserSelect(selectedUser);
     }
-    if (onStartConversation) {
-      onStartConversation(selectedUser);
-    }
     onClose();
   };
 
