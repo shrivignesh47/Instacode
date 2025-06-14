@@ -37,6 +37,7 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [initialized, setInitialized] = useState(false);
 
   const convertSupabaseUser = async (supabaseUser: SupabaseUser): Promise<User | null> => {
     try {
@@ -144,7 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: errorMessage };
       }
 
-      if (data.user) {
+      if (data.user && data.session) {
         const convertedUser = await convertSupabaseUser(data.user);
         if (convertedUser) {
           setUser(convertedUser);
@@ -237,47 +238,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Listen for auth state changes
+  // Initialize auth state and listen for changes
   useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (mounted) {
+          if (session?.user) {
+            const convertedUser = await convertSupabaseUser(session.user);
+            if (convertedUser && mounted) {
+              setUser(convertedUser);
+              setIsAuthenticated(true);
+            }
+          }
+          setInitialized(true);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        if (mounted) {
+          setInitialized(true);
+        }
+      }
+    };
+
+    initializeAuth();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session: Session | null) => {
+        if (!mounted) return;
+
         if (session?.user) {
           const convertedUser = await convertSupabaseUser(session.user);
-          if (convertedUser) {
+          if (convertedUser && mounted) {
             setUser(convertedUser);
             setIsAuthenticated(true);
-          } else {
+          }
+        } else {
+          if (mounted) {
             setUser(null);
             setIsAuthenticated(false);
           }
-        } else {
-          setUser(null);
-          setIsAuthenticated(false);
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Initial session check
-  useEffect(() => {
-    const getInitialSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const convertedUser = await convertSupabaseUser(session.user);
-          if (convertedUser) {
-            setUser(convertedUser);
-            setIsAuthenticated(true);
-          }
-        }
-      } catch (error) {
-        console.error('Error getting initial session:', error);
-      }
-    };
-    getInitialSession();
-  }, []);
+  // Don't render anything until auth is initialized
+  if (!initialized) {
+    return null;
+  }
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, user, login, signup, logout }}>
