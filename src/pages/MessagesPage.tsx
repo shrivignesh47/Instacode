@@ -91,26 +91,24 @@ const MessagesPage = () => {
 
     // Subscribe to new messages
     const messagesChannel = supabase
-      .channel('messages_changes')
+      .channel('messages_realtime')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'messages'
         },
         (payload) => {
-          console.log('Message change:', payload);
-          if (payload.eventType === 'INSERT') {
-            handleNewMessage(payload.new as any);
-          }
+          console.log('New message received:', payload);
+          handleNewMessage(payload.new as any);
         }
       )
       .subscribe();
 
     // Subscribe to conversation updates
     const conversationsChannel = supabase
-      .channel('conversations_changes')
+      .channel('conversations_realtime')
       .on(
         'postgres_changes',
         {
@@ -118,7 +116,8 @@ const MessagesPage = () => {
           schema: 'public',
           table: 'conversations'
         },
-        () => {
+        (payload) => {
+          console.log('Conversation updated:', payload);
           loadConversations();
         }
       )
@@ -150,6 +149,7 @@ const MessagesPage = () => {
           participant_1,
           participant_2,
           last_message_at,
+          last_message_id,
           profiles!conversations_participant_1_fkey(id, username, avatar_url, bio),
           profiles_participant_2:profiles!conversations_participant_2_fkey(id, username, avatar_url, bio)
         `)
@@ -161,12 +161,28 @@ const MessagesPage = () => {
         return;
       }
 
-      const formattedConversations: Conversation[] = data.map(conv => {
+      const formattedConversations: Conversation[] = [];
+
+      for (const conv of data) {
         const otherUser = conv.participant_1 === user.id 
           ? conv.profiles_participant_2 
           : conv.profiles;
 
-        return {
+        // Get last message if exists
+        let lastMessage = undefined;
+        if (conv.last_message_id) {
+          const { data: messageData } = await supabase
+            .from('messages')
+            .select('content, message_type, sender_id')
+            .eq('id', conv.last_message_id)
+            .single();
+          
+          if (messageData) {
+            lastMessage = messageData;
+          }
+        }
+
+        formattedConversations.push({
           id: conv.id,
           participant_1: conv.participant_1,
           participant_2: conv.participant_2,
@@ -177,9 +193,10 @@ const MessagesPage = () => {
             avatar_url: otherUser.avatar_url || '',
             bio: otherUser.bio || ''
           },
+          last_message: lastMessage,
           unread_count: 0 // TODO: Calculate unread count
-        };
-      });
+        });
+      }
 
       setConversations(formattedConversations);
     } catch (error) {
@@ -268,10 +285,48 @@ const MessagesPage = () => {
     }
   };
 
-  const handleNewMessage = (newMessage: any) => {
+  const handleNewMessage = async (newMessage: any) => {
+    console.log('Processing new message:', newMessage);
+    
     // If the message is for the current conversation, add it to messages
     if (selectedConversation && newMessage.conversation_id === selectedConversation.id) {
-      loadMessages(selectedConversation.id);
+      // Fetch the complete message with sender info
+      const { data: messageData, error } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          conversation_id,
+          sender_id,
+          content,
+          message_type,
+          shared_post_id,
+          file_url,
+          is_read,
+          created_at,
+          profiles!messages_sender_id_fkey(username, avatar_url)
+        `)
+        .eq('id', newMessage.id)
+        .single();
+
+      if (!error && messageData) {
+        const formattedMessage: Message = {
+          id: messageData.id,
+          conversation_id: messageData.conversation_id,
+          sender_id: messageData.sender_id,
+          content: messageData.content,
+          message_type: messageData.message_type,
+          shared_post_id: messageData.shared_post_id,
+          file_url: messageData.file_url,
+          is_read: messageData.is_read,
+          created_at: messageData.created_at,
+          sender: {
+            username: messageData.profiles.username,
+            avatar_url: messageData.profiles.avatar_url || ''
+          }
+        };
+
+        setMessages(prev => [...prev, formattedMessage]);
+      }
     }
     
     // Reload conversations to update last message
@@ -283,22 +338,25 @@ const MessagesPage = () => {
 
     setSendingMessage(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('messages')
         .insert({
           conversation_id: selectedConversation.id,
           sender_id: user.id,
           content: messageInput.trim(),
           message_type: 'text'
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('Error sending message:', error);
         return;
       }
 
+      console.log('Message sent successfully:', data);
       setMessageInput('');
-      // Messages will be updated via real-time subscription
+      // The real-time subscription will handle adding the message to the UI
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
@@ -676,7 +734,11 @@ const MessagesPage = () => {
                     disabled={!messageInput.trim() || sendingMessage}
                     className="p-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-full transition-colors flex-shrink-0"
                   >
-                    <Send className="w-5 h-5" />
+                    {sendingMessage ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
               </div>
