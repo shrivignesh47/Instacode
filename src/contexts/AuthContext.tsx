@@ -40,10 +40,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Convert Supabase user to our User interface
   const convertSupabaseUser = async (supabaseUser: SupabaseUser): Promise<User | null> => {
     try {
-      // First, try to get the user's profile from the profiles table
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -55,7 +53,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
 
-      // If profile exists, use it; otherwise create a basic user object
       if (profile) {
         return {
           id: profile.id,
@@ -71,11 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           posts: profile.posts_count || 0,
         };
       } else {
-        // Create a basic user object from Supabase auth user
-        const username = supabaseUser.user_metadata?.username || 
-                         supabaseUser.email?.split('@')[0] || 
-                         'user';
-        
+        const username = supabaseUser.user_metadata?.username || supabaseUser.email?.split('@')[0] || 'user';
         return {
           id: supabaseUser.id,
           username,
@@ -96,7 +89,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Check if username is already taken
   const isUsernameAvailable = async (username: string): Promise<boolean> => {
     try {
       const { data, error } = await supabase
@@ -106,11 +98,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error && error.code === 'PGRST116') {
-        // No rows returned, username is available
         return true;
       }
-
-      // If we got data, username is taken
       return !data;
     } catch (error) {
       console.error('Error checking username availability:', error);
@@ -118,21 +107,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Create user profile after successful signup
   const createUserProfile = async (supabaseUser: SupabaseUser, username: string): Promise<void> => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .insert({
-          id: supabaseUser.id,
-          username,
-          email: supabaseUser.email || '',
-          avatar_url: 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=150',
-          bio: 'New developer on InstaCode!',
-          followers_count: 0,
-          following_count: 0,
-          posts_count: 0,
-        });
+      const { error } = await supabase.from('profiles').insert({
+        id: supabaseUser.id,
+        username,
+        email: supabaseUser.email || '',
+        avatar_url: 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=150',
+        bio: 'New developer on InstaCode!',
+        followers_count: 0,
+        following_count: 0,
+        posts_count: 0,
+      });
 
       if (error) {
         console.error('Error creating user profile:', error);
@@ -146,14 +132,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
         let errorMessage = 'Login failed. Please try again.';
-        
         if (error.message.includes('Invalid login credentials')) {
           errorMessage = 'Invalid email or password. Please check your credentials and try again.';
         } else if (error.message.includes('Email not confirmed')) {
@@ -161,7 +143,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (error.message.includes('Too many requests')) {
           errorMessage = 'Too many login attempts. Please wait a moment and try again.';
         }
-        
         return { success: false, error: errorMessage };
       }
 
@@ -185,34 +166,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signup = async (username: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Validate username format
       if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
-        return { 
-          success: false, 
-          error: 'Username must be 3-20 characters long and contain only letters, numbers, and underscores.' 
+        return {
+          success: false,
+          error: 'Username must be 3-20 characters long and contain only letters, numbers, and underscores.',
         };
       }
 
-      // Check if username is available
       const usernameAvailable = await isUsernameAvailable(username);
       if (!usernameAvailable) {
         return { success: false, error: 'Username is already taken. Please choose a different username.' };
       }
 
-      // Sign up with Supabase
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            username,
-          },
+          data: { username },
         },
       });
 
       if (error) {
         let errorMessage = 'Signup failed. Please try again.';
-        
         if (error.message.includes('User already registered')) {
           errorMessage = 'An account with this email already exists. Please try logging in instead.';
         } else if (error.message.includes('Password should be at least')) {
@@ -222,21 +197,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (error.message.includes('Signup is disabled')) {
           errorMessage = 'Account creation is currently disabled. Please contact support.';
         }
-        
         return { success: false, error: errorMessage };
       }
 
       if (data.user) {
-        // Create user profile in the profiles table
         try {
           await createUserProfile(data.user, username);
         } catch (profileError) {
           console.error('Error creating profile:', profileError);
-          // Even if profile creation fails, the user is still created in auth
-          // They can complete their profile later
         }
 
-        // If email confirmation is disabled, the user will be automatically signed in
         if (data.session) {
           const convertedUser = await convertSupabaseUser(data.user);
           if (convertedUser) {
@@ -269,12 +239,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Listen for auth state changes
+  // ✅ Modified: Don't touch `loading` in auth change
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session: Session | null) => {
-        setLoading(true);
-        
         if (session?.user) {
           const convertedUser = await convertSupabaseUser(session.user);
           if (convertedUser) {
@@ -288,20 +256,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
           setIsAuthenticated(false);
         }
-        
-        setLoading(false);
       }
     );
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Initial session check
+  // ✅ Only show loading spinner during first session check
   useEffect(() => {
     const getInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
         if (session?.user) {
           const convertedUser = await convertSupabaseUser(session.user);
           if (convertedUser) {
@@ -315,19 +280,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
       }
     };
-
     getInitialSession();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ 
-      isAuthenticated, 
-      user, 
-      loading, 
-      login, 
-      signup, 
-      logout 
-    }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, loading, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
