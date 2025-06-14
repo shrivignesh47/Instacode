@@ -4,6 +4,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import CodeEditor from './CodeEditor';
 import CodePlayground from './CodePlayground';
+import SharePostModal from './SharePostModal';
 import { executeCode } from '../utils/codeRunner';
 import { supabase, type PostWithUser } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,6 +20,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
   const [isSaved, setIsSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showPlayground, setShowPlayground] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [useAdvancedEditor, setUseAdvancedEditor] = useState(false);
   const [inFeedOutput, setInFeedOutput] = useState('');
   const [inFeedIsRunning, setInFeedIsRunning] = useState(false);
@@ -73,23 +75,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
     }
   };
 
-  const handleShare = async () => {
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `Check out this ${post.type} by ${post.profiles.username}`,
-          text: post.content,
-          url: window.location.href
-        });
-      } else {
-        // Fallback: copy to clipboard
-        await navigator.clipboard.writeText(window.location.href);
-        alert('Link copied to clipboard!');
-      }
-      setSharesCount(prev => prev + 1);
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
+  const handleShare = () => {
+    setShowShareModal(true);
   };
 
   const handleRunCodeInFeed = async () => {
@@ -390,6 +377,13 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
           initialLanguage={post.code_language}
         />
       )}
+
+      {/* Share Post Modal */}
+      <SharePostModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        post={post}
+      />
     </>
   );
 };
