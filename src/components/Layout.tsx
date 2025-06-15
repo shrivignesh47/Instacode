@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
 import Sidebar from './Sidebar';
 import TopNavigation from './TopNavigation';
 import RightSidebar from './RightSidebar';
@@ -22,7 +21,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [screenSize, setScreenSize] = useState<'sm' | 'md' | 'lg' | 'xl' | '2xl'>('lg');
   
   const location = useLocation();
-  const { user } = useAuth();
 
   // Check if current page is messages
   const isMessagesPage = location.pathname === '/messages';
@@ -60,6 +58,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setIsMobileRightSidebarOpen(false);
   }, [location.pathname]);
 
+  const showMobileNav = (screenSize === 'sm' || screenSize === 'md') && !isMessagesPage;
+  const showTopNav = !isMessagesPage || (screenSize !== 'sm' && screenSize !== 'md');
+
   // Calculate layout dimensions
   const getLeftSidebarWidth = () => {
     if (screenSize === 'sm' || screenSize === 'md') return 0;
@@ -86,10 +87,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Top Navigation */}
-      <TopNavigation 
+      {showTopNav && <TopNavigation 
         onMobileSidebarToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-        onMobileRightSidebarToggle={() => setIsMobileRightSidebarOpen(!isMobileRightSidebarOpen)}
-      />
+      />}
       
       <div className="relative">
         {/* Desktop Left Sidebar */}
@@ -97,8 +97,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="fixed left-0 top-16 z-30">
             <Sidebar 
               isCollapsed={isSidebarCollapsed}
-              onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              screenSize={screenSize}
             />
             {/* Collapse Toggle Button */}
             <button
@@ -121,10 +119,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="relative w-64 bg-gray-800 h-full">
               <Sidebar 
                 isCollapsed={false}
-                onToggleCollapse={() => {}}
                 isMobile={true}
                 onClose={() => setIsMobileSidebarOpen(false)}
-                screenSize={screenSize}
               />
             </div>
           </div>
@@ -158,6 +154,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setIsMobileRightSidebarOpen(false)} />
             <div className="relative w-80 bg-gray-800 h-full">
               <RightSidebar 
+                isCollapsed={isRightSidebarCollapsed}
+                onToggleCollapse={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
                 isMobile={true}
                 onClose={() => setIsMobileRightSidebarOpen(false)}
                 screenSize={screenSize}
@@ -168,7 +166,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Main Content */}
         <main 
-          className="transition-all duration-300 pt-16"
+          className={`transition-all duration-300 ${showTopNav ? 'pt-16' : ''}`}
           style={getMainContentMargins()}
         >
           <div className={`${
@@ -182,7 +180,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      {(screenSize === 'sm' || screenSize === 'md') && (
+      {showMobileNav && (
         <MobileNavigation />
       )}
     </div>

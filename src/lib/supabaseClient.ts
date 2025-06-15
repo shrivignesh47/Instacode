@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -19,6 +18,7 @@ export interface Database {
           id: string;
           username: string;
           email: string;
+          display_name: string | null;
           avatar_url: string | null;
           bio: string | null;
           github_url: string | null;
@@ -29,6 +29,7 @@ export interface Database {
           followers_count: number;
           following_count: number;
           posts_count: number;
+          verified: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -36,6 +37,7 @@ export interface Database {
           id: string;
           username: string;
           email: string;
+          display_name?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           github_url?: string | null;
@@ -46,6 +48,7 @@ export interface Database {
           followers_count?: number;
           following_count?: number;
           posts_count?: number;
+          verified?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -53,6 +56,7 @@ export interface Database {
           id?: string;
           username?: string;
           email?: string;
+          display_name?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           github_url?: string | null;
@@ -63,6 +67,7 @@ export interface Database {
           followers_count?: number;
           following_count?: number;
           posts_count?: number;
+          verified?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -125,6 +130,44 @@ export interface Database {
           likes_count?: number;
           comments_count?: number;
           shares_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          sender_id: string;
+          content: string;
+          message_type: 'text' | 'post_share' | 'image' | 'file';
+          shared_post_id: string | null;
+          media_url: string | null;
+          is_read: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          sender_id: string;
+          content: string;
+          message_type?: 'text' | 'post_share' | 'image' | 'file';
+          shared_post_id?: string | null;
+          media_url?: string | null;
+          is_read?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          conversation_id?: string;
+          sender_id?: string;
+          content?: string;
+          message_type?: 'text' | 'post_share' | 'image' | 'file';
+          shared_post_id?: string | null;
+          media_url?: string | null;
+          is_read?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -193,6 +236,26 @@ export interface Database {
           content?: string;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      followers: {
+        Row: {
+          id: string;
+          follower_id: string;
+          followed_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          follower_id: string;
+          followed_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          follower_id?: string;
+          followed_id?: string;
+          created_at?: string;
         };
       };
     };

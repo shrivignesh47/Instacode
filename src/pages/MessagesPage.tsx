@@ -20,18 +20,6 @@ const MessagesPage = () => {
   const { conversations, loading, loadConversations } = useConversations();
   const { messages, loadMessages, addMessage, updateMessage, setMessages } = useMessages();
 
-  // Auto refresh every 2 seconds when a conversation is selected
-  useEffect(() => {
-    if (!selectedConversation) return;
-
-    const interval = setInterval(() => {
-      console.log('Auto-refreshing messages...');
-      handleRefreshMessages();
-    }, 2000); // 2 seconds
-
-    return () => clearInterval(interval);
-  }, [selectedConversation]);
-
   // Handle manual refresh of messages
   const handleRefreshMessages = useCallback(async () => {
     if (!selectedConversation || isRefreshing) return;
@@ -47,6 +35,18 @@ const MessagesPage = () => {
       setIsRefreshing(false);
     }
   }, [selectedConversation, loadMessages, loadConversations, isRefreshing]);
+
+  // Auto-refresh messages every 2 seconds
+  useEffect(() => {
+    if (!selectedConversation) return;
+
+    const autoRefreshInterval = setInterval(() => {
+      handleRefreshMessages();
+    }, 2000); // Refresh every 2 seconds
+
+    return () => clearInterval(autoRefreshInterval);
+  }, [selectedConversation, handleRefreshMessages]);
+
 
   // Handle real-time message updates
   const handleNewMessage = useCallback(async (newMessage: any) => {

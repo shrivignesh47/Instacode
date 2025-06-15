@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
@@ -21,18 +22,16 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
   isCollapsed: boolean;
-  onToggleCollapse: () => void;
   isMobile?: boolean;
   onClose?: () => void;
-  screenSize: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  onToggleCollapse?: () => void;
+  screenSize?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
   isCollapsed, 
-  onToggleCollapse, 
   isMobile, 
   onClose, 
-  screenSize 
 }) => {
   const location = useLocation();
   const { user } = useAuth();

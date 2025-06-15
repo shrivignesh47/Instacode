@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Bookmark, Grid, List, Search, Filter, Code, Image, Video, FolderOpen, Heart, MessageCircle, Share, ExternalLink, Github } from 'lucide-react';
 
 const SavedPage = () => {

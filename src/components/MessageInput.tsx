@@ -90,7 +90,7 @@ const MessageInput = ({
   };
 
   return (
-    <div className="p-4 lg:p-6 bg-gray-800 border-t border-gray-700 flex-shrink-0 pb-6 lg:pb-6 mb-16 lg:mb-0">
+    <div className="p-4 lg:p-6 bg-gray-800 border-t border-gray-700 flex-shrink-0 pb-6 lg:pb-6">
       <div className="flex items-center space-x-3">
         <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors flex-shrink-0">
           <Paperclip className="w-5 h-5" />

@@ -14,9 +14,12 @@ import TrendingPage from './pages/TrendingPage';
 import SettingsPage from './pages/SettingsPage';
 import MessagesPage from './pages/MessagesPage';
 import Layout from './components/Layout';
+import PostPage from './pages/PostPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
+  
+  console.log('ProtectedRoute: loading:', loading, 'isAuthenticated:', isAuthenticated);
   
   if (loading) {
     return (
@@ -35,6 +38,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
   
+  console.log('PublicRoute: loading:', loading, 'isAuthenticated:', isAuthenticated);
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -51,6 +56,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function AppContent() {
   const { loading } = useAuth();
+
+  console.log('AppContent: loading:', loading);
 
   if (loading) {
     return (
@@ -141,6 +148,13 @@ function AppContent() {
         <ProtectedRoute>
           <Layout>
             <ProfilePage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/post/:id" element={
+        <ProtectedRoute>
+          <Layout>
+            <PostPage />
           </Layout>
         </ProtectedRoute>
       } />

@@ -54,17 +54,20 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
       if (!error && conversations) {
         const users: SearchUser[] = [];
         conversations.forEach(conv => {
-          const otherUser = conv.participant_1 === user?.id 
+          const participantProfile = conv.participant_1 === user?.id 
             ? conv.profiles_participant_2 
             : conv.profiles;
           
+          let otherUser: SearchUser | null = null;
+
+          if (Array.isArray(participantProfile) && participantProfile.length > 0) {
+            otherUser = participantProfile[0];
+          } else if (participantProfile && !Array.isArray(participantProfile)) {
+            otherUser = participantProfile as SearchUser;
+          }
+          
           if (otherUser && !users.find(u => u.id === otherUser.id)) {
-            users.push({
-              id: otherUser.id,
-              username: otherUser.username,
-              avatar_url: otherUser.avatar_url || '',
-              bio: otherUser.bio || ''
-            });
+            users.push(otherUser);
           }
         });
         setRecentUsers(users);
@@ -122,6 +125,22 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
     });
   };
 
+  // Helper for share message based on post type
+  const getDefaultShareMessage = () => {
+    switch (post.type) {
+      case "code":
+        return "Shared a code with compiler";
+      case "project":
+        return "Shared a project";
+      case "image":
+        return "Shared an image";
+      case "video":
+        return "Shared a video";
+      default:
+        return "Shared a post";
+    }
+  };
+
   const handleSendPost = async () => {
     if (selectedUsers.length === 0) return;
 
@@ -141,13 +160,13 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
           continue;
         }
 
-        // Send message with shared post
+        // Send message with shared post & context-aware text
         const { error: messageError } = await supabase
           .from('messages')
           .insert({
             conversation_id: conversationData,
             sender_id: user?.id,
-            content: message || `Shared a ${post.type}`,
+            content: message || getDefaultShareMessage(),
             message_type: 'post_share',
             shared_post_id: post.id
           });
