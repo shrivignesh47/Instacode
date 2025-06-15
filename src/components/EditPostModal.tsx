@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 interface EditPostModalProps {
   isOpen: boolean;
   onClose: () => void;
-  post: PostWithUser;
+  post: PostWithUser | null;
   onPostUpdated: (updatedPost: PostWithUser) => void;
 }
 
@@ -18,16 +18,14 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ isOpen, onClose, post, on
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Form state
-  const [content, setContent] = useState(post.content || '');
-  const [codeContent, setCodeContent] = useState(post.code_content || '');
-  const [projectTitle, setProjectTitle] = useState(post.project_title || '');
-  const [projectDescription, setProjectDescription] = useState(post.project_description || '');
-  const [projectTechStack, setProjectTechStack] = useState(
-    post.project_tech_stack ? post.project_tech_stack.join(', ') : ''
-  );
-  const [projectLiveUrl, setProjectLiveUrl] = useState(post.project_live_url || '');
-  const [projectGithubUrl, setProjectGithubUrl] = useState(post.project_github_url || '');
+  // Form state with null checks
+  const [content, setContent] = useState('');
+  const [codeContent, setCodeContent] = useState('');
+  const [projectTitle, setProjectTitle] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
+  const [projectTechStack, setProjectTechStack] = useState('');
+  const [projectLiveUrl, setProjectLiveUrl] = useState('');
+  const [projectGithubUrl, setProjectGithubUrl] = useState('');
 
   useEffect(() => {
     if (post) {
@@ -38,11 +36,20 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ isOpen, onClose, post, on
       setProjectTechStack(post.project_tech_stack ? post.project_tech_stack.join(', ') : '');
       setProjectLiveUrl(post.project_live_url || '');
       setProjectGithubUrl(post.project_github_url || '');
+    } else {
+      // Reset form when post is null
+      setContent('');
+      setCodeContent('');
+      setProjectTitle('');
+      setProjectDescription('');
+      setProjectTechStack('');
+      setProjectLiveUrl('');
+      setProjectGithubUrl('');
     }
   }, [post]);
 
   const handleSave = async () => {
-    if (!user || user.id !== post.user_id) {
+    if (!user || !post || user.id !== post.user_id) {
       setError('You can only edit your own posts');
       return;
     }
@@ -99,7 +106,8 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ isOpen, onClose, post, on
     }
   };
 
-  if (!isOpen) return null;
+  // Don't render anything if modal is not open or post is null
+  if (!isOpen || !post) return null;
 
   const canEdit = user && user.id === post.user_id;
 

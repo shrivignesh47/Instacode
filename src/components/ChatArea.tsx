@@ -49,8 +49,8 @@ const ChatArea = ({
   return (
     <div className="flex-1 flex flex-col bg-gray-900 min-w-0 h-full">
       {/* Chat Header */}
-      <div className="p-4 lg:p-6 bg-gray-800 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center space-x-3 min-w-0">
+      <div className="p-3 sm:p-4 lg:p-6 bg-gray-800 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center space-x-3 min-w-0 flex-1">
           <button
             onClick={onBackToList}
             className="lg:hidden p-2 text-gray-400 hover:text-white transition-colors flex-shrink-0"
@@ -62,27 +62,28 @@ const ChatArea = ({
             <img
               src={selectedConversation.other_user.avatar_url || 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=50'}
               alt={selectedConversation.other_user.username}
-              className="w-10 h-10 lg:w-12 lg:h-12 rounded-full object-cover"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover"
             />
-            <div className="absolute bottom-0 right-0 w-3 h-3 lg:w-4 lg:h-4 bg-green-500 border-2 border-gray-800 rounded-full"></div>
+            <div className="absolute bottom-0 right-0 w-3 h-3 sm:w-4 sm:h-4 bg-green-500 border-2 border-gray-800 rounded-full"></div>
           </div>
-          <div className="min-w-0">
-            <h2 className="text-lg lg:text-xl font-semibold text-white truncate">
+          
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-white truncate">
               {selectedConversation.other_user.username}
             </h2>
-            <p className="text-sm text-gray-400 truncate">Active now</p>
+            <p className="text-xs sm:text-sm text-gray-400 truncate">Active now</p>
           </div>
         </div>
         
-        <div className="flex items-center space-x-2 flex-shrink-0">
-          <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors">
-            <Phone className="w-5 h-5" />
+        <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0 ml-2">
+          <button className="p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors">
+            <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors">
-            <Video className="w-5 h-5" />
+          <button className="p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors">
+            <Video className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors">
-            <MoreVertical className="w-5 h-5" />
+          <button className="p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors">
+            <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
       </div>

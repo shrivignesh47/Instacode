@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import Layout from '../components/Layout';
 import ConversationList from '../components/ConversationList';
@@ -19,14 +20,14 @@ const MessagesPage = () => {
   const { conversations, loading, loadConversations } = useConversations();
   const { messages, loadMessages, addMessage, updateMessage, setMessages } = useMessages();
 
-  // Auto refresh every 10 seconds when a conversation is selected
+  // Auto refresh every 2 seconds when a conversation is selected
   useEffect(() => {
     if (!selectedConversation) return;
 
     const interval = setInterval(() => {
       console.log('Auto-refreshing messages...');
       handleRefreshMessages();
-    }, 2000); // 10 seconds
+    }, 2000); // 2 seconds
 
     return () => clearInterval(interval);
   }, [selectedConversation]);
@@ -204,8 +205,8 @@ const MessagesPage = () => {
   return (
     <Layout>
       <div className="h-full bg-gray-900 flex overflow-hidden">
-        {/* Conversation List */}
-        <div className={`${showChatList ? 'flex' : 'hidden'} lg:flex`}>
+        {/* Conversation List - Full width on mobile, fixed width on desktop */}
+        <div className={`${showChatList ? 'flex w-full' : 'hidden'} lg:flex lg:w-80 xl:w-96`}>
           <ConversationList
             conversations={conversations}
             selectedConversation={selectedConversation}
@@ -215,8 +216,8 @@ const MessagesPage = () => {
           />
         </div>
 
-        {/* Chat Area */}
-        <div className={`${!showChatList ? 'flex' : 'hidden'} lg:flex flex-1`}>
+        {/* Chat Area - Full width on mobile when shown, flexible on desktop */}
+        <div className={`${!showChatList ? 'flex w-full' : 'hidden'} lg:flex lg:flex-1`}>
           <ChatArea
             selectedConversation={selectedConversation}
             messages={messages}
