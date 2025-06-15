@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { supabase, type PostWithUser } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -18,6 +20,7 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ isOpen, onClose, post, on
   
   // Form state
   const [content, setContent] = useState(post.content || '');
+  const [codeContent, setCodeContent] = useState(post.code_content || '');
   const [projectTitle, setProjectTitle] = useState(post.project_title || '');
   const [projectDescription, setProjectDescription] = useState(post.project_description || '');
   const [projectTechStack, setProjectTechStack] = useState(
@@ -29,6 +32,7 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ isOpen, onClose, post, on
   useEffect(() => {
     if (post) {
       setContent(post.content || '');
+      setCodeContent(post.code_content || '');
       setProjectTitle(post.project_title || '');
       setProjectDescription(post.project_description || '');
       setProjectTechStack(post.project_tech_stack ? post.project_tech_stack.join(', ') : '');
@@ -50,6 +54,11 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ isOpen, onClose, post, on
       const updateData: any = {
         content: content.trim()
       };
+
+      // For code posts, allow editing code content
+      if (post.type === 'code') {
+        updateData.code_content = codeContent.trim();
+      }
 
       // For projects, allow editing all fields
       if (post.type === 'project') {
@@ -112,7 +121,7 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ isOpen, onClose, post, on
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-gray-800 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <h3 className="text-xl font-semibold text-white">
@@ -144,6 +153,53 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ isOpen, onClose, post, on
               placeholder="Enter description..."
             />
           </div>
+
+          {/* Code Content for code posts */}
+          {post.type === 'code' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Code Content
+              </label>
+              <div className="relative">
+                <textarea
+                  value={codeContent}
+                  onChange={(e) => setCodeContent(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+                  rows={12}
+                  placeholder="Enter your code here..."
+                />
+                {post.code_language && (
+                  <div className="absolute top-2 right-2 bg-gray-700 px-2 py-1 rounded text-xs text-gray-300">
+                    {post.code_language.toUpperCase()}
+                  </div>
+                )}
+              </div>
+              
+              {/* Code Preview */}
+              {codeContent && post.code_language && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Preview
+                  </label>
+                  <div className="bg-gray-900 rounded-lg overflow-hidden border border-gray-600">
+                    <SyntaxHighlighter
+                      language={post.code_language}
+                      style={oneDark}
+                      customStyle={{
+                        margin: 0,
+                        padding: '1rem',
+                        background: 'transparent',
+                        fontSize: '14px',
+                        maxHeight: '200px'
+                      }}
+                    >
+                      {codeContent}
+                    </SyntaxHighlighter>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Project-specific fields */}
           {post.type === 'project' && (

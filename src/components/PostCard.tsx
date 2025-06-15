@@ -7,14 +7,20 @@ import CodePlayground from './CodePlayground';
 import CodePostModal from './CodePostModal';
 import SharePostModal from './SharePostModal';
 import EditPostModal from './EditPostModal';
+import PostOptionsDropdown from './PostOptionsDropdown';
 import Comments from './Comments';
 import { executeCode } from '../utils/codeRunner';
 import { supabase, type PostWithUser } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 
-const PostCard: React.FC<{ post: PostWithUser; onPostUpdate?: (updatedPost: PostWithUser) => void }> = ({ 
+const PostCard: React.FC<{ 
+  post: PostWithUser; 
+  onPostUpdate?: (updatedPost: PostWithUser) => void;
+  onPostDeleted?: (postId: string) => void;
+}> = ({ 
   post: initialPost, 
-  onPostUpdate 
+  onPostUpdate,
+  onPostDeleted
 }) => {
   const { user } = useAuth();
   const [post, setPost] = useState(initialPost);
@@ -116,13 +122,18 @@ const PostCard: React.FC<{ post: PostWithUser; onPostUpdate?: (updatedPost: Post
 
   const handleEditPost = () => {
     setShowEditModal(true);
-    setShowOptionsMenu(false);
   };
 
   const handlePostUpdated = (updatedPost: PostWithUser) => {
     setPost(updatedPost);
     if (onPostUpdate) {
       onPostUpdate(updatedPost);
+    }
+  };
+
+  const handlePostDeleted = () => {
+    if (onPostDeleted) {
+      onPostDeleted(post.id);
     }
   };
 
@@ -162,17 +173,14 @@ const PostCard: React.FC<{ post: PostWithUser; onPostUpdate?: (updatedPost: Post
                 <MoreHorizontal className="w-5 h-5" />
               </button>
               
-              {showOptionsMenu && (
-                <div className="absolute top-full right-0 mt-1 w-48 bg-gray-700 border border-gray-600 rounded-lg shadow-lg z-10">
-                  <button
-                    onClick={handleEditPost}
-                    className="flex items-center w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Post
-                  </button>
-                </div>
-              )}
+              <PostOptionsDropdown
+                isOpen={showOptionsMenu}
+                postId={post.id}
+                postUserId={post.user_id}
+                onClose={() => setShowOptionsMenu(false)}
+                onPostDeleted={handlePostDeleted}
+                onEditPost={handleEditPost}
+              />
             </div>
           )}
         </div>

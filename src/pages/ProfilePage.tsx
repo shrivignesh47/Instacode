@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
@@ -9,6 +8,7 @@ import {
 } from 'lucide-react';
 import ProfileHeader from '../components/ProfileHeader';
 import EditProfileModal from '../components/EditProfileModal';
+import EditPostModal from '../components/EditPostModal';
 import ContentTabs from '../components/ContentTabs';
 import PostGrid from '../components/PostGrid';
 import ShareModal from '../components/ShareModal';
@@ -55,12 +55,11 @@ const ProfilePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [isPostOptionsOpen, setIsPostOptionsOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareLink, setShareLink] = useState('');
   const [isCodeCopied, setIsCodeCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
+  const [editPost, setEditPost] = useState<any>(null);
 
   useEffect(() => {
     if (selectedPost) {
@@ -174,29 +173,10 @@ const ProfilePage = () => {
     setIsPostOptionsOpen(!isPostOptionsOpen);
   };
 
-  const handleDeletePost = async () => {
-    if (!selectedPost) return;
-
-    setIsDeleting(true);
-    setDeleteError(null);
-
-    try {
-      const { error: deleteError } = await supabase
-        .from('posts')
-        .delete()
-        .eq('id', selectedPost.id);
-
-      if (deleteError) {
-        throw deleteError;
-      }
-
-      setPosts(posts.filter(post => post.id !== selectedPost.id));
-      setIsPostOptionsOpen(false);
-    } catch (err: any) {
-      setDeleteError(err.message || 'Failed to delete post.');
-    } finally {
-      setIsDeleting(false);
-    }
+  const handleEditPost = (post: any) => {
+    setSelectedPost(post);
+    setEditPost(post);
+    setIsPostOptionsOpen(false);
   };
 
   if (loading) {
@@ -287,11 +267,28 @@ const ProfilePage = () => {
         onInputChange={handleInputChange}
       />
 
+      <EditPostModal
+        isOpen={!!editPost}
+        onClose={() => setEditPost(null)}
+        post={editPost}
+        onPostUpdated={(updatedPost) => {
+          setPosts(posts.map(post => post.id === updatedPost.id ? updatedPost : post));
+          setEditPost(null);
+        }}
+      />
+
       <PostOptionsDropdown
         isOpen={isPostOptionsOpen}
-        isDeleting={isDeleting}
-        deleteError={deleteError}
-        onDelete={handleDeletePost}
+        postId={selectedPost?.id || ''}
+        postUserId={selectedPost?.user_id || ''}
+        onClose={() => setIsPostOptionsOpen(false)}
+        onEditPost={() => handleEditPost(selectedPost)}
+        onPostDeleted={() => {
+          if (selectedPost) {
+            setPosts(posts.filter(post => post.id !== selectedPost.id));
+            setIsPostOptionsOpen(false);
+          }
+        }}
       />
 
       <ShareModal

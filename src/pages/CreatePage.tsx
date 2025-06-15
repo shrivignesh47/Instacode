@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Code, Image, Video, FolderOpen, Upload, Play, Eye, Save, X, Plus } from 'lucide-react';
+import { Code, Image, Video, FolderOpen, Play } from 'lucide-react';
 import CodeEditor from '../components/CodeEditor';
 import CodePlayground from '../components/CodePlayground';
 import FileUpload from '../components/FileUpload';
@@ -165,7 +165,7 @@ const CreatePage = () => {
       }
 
       // Insert the post
-      const { data, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('posts')
         .insert(postData)
         .select()
@@ -847,7 +847,7 @@ body {
                 >
                   {supportedLanguages.map((lang) => (
                     <option key={lang.value} value={lang.value}>
-                      {lang.icon} {lang.label}
+                      {lang.label}
                     </option>
                   ))}
                 </select>

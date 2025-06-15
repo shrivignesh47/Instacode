@@ -236,6 +236,12 @@ const HomePage = () => {
     );
   };
 
+  const handlePostDeleted = (postId: string) => {
+    setPosts(prevPosts => 
+      prevPosts.filter(post => post.id !== postId)
+    );
+  };
+
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto px-2 lg:px-0">
@@ -338,6 +344,7 @@ const HomePage = () => {
               key={post.id} 
               post={post} 
               onPostUpdate={handlePostUpdate}
+              onPostDeleted={handlePostDeleted}
             />
           ))
         )}
