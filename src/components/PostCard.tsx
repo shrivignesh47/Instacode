@@ -1,32 +1,27 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Share, Bookmark, Play, ExternalLink, Github, CheckCircle, Code, Edit } from 'lucide-react';
+import { Heart, MessageCircle, Share, Bookmark, Play, ExternalLink, Github, CheckCircle, Edit } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import CodeEditor from './CodeEditor';
 import CodePlayground from './CodePlayground';
+import CodePostModal from './CodePostModal';
 import SharePostModal from './SharePostModal';
 import { executeCode } from '../utils/codeRunner';
 import { supabase, type PostWithUser } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 
-interface PostCardProps {
-  post: PostWithUser;
-  onPostUpdate?: (updatedPost: PostWithUser) => void;
-}
-
-const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
+const PostCard: React.FC<{ post: PostWithUser }> = ({ post }) => {
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(post.user_liked || false);
   const [isSaved, setIsSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showPlayground, setShowPlayground] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showCodeModal, setShowCodeModal] = useState(false);
   const [useAdvancedEditor, setUseAdvancedEditor] = useState(false);
   const [inFeedOutput, setInFeedOutput] = useState('');
   const [inFeedIsRunning, setInFeedIsRunning] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes_count);
-  const [commentsCount, setCommentsCount] = useState(post.comments_count);
-  const [sharesCount, setSharesCount] = useState(post.shares_count);
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -54,7 +49,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
 
         if (!error) {
           setIsLiked(false);
-          setLikesCount(prev => prev - 1);
+          setLikesCount((prev: number) => prev - 1);
         }
       } else {
         // Like the post
@@ -67,7 +62,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
 
         if (!error) {
           setIsLiked(true);
-          setLikesCount(prev => prev + 1);
+          setLikesCount((prev: number) => prev + 1);
         }
       }
     } catch (error) {
@@ -106,6 +101,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
     setInFeedOutput('');
   };
 
+  const handleCodeClick = () => {
+    if (post.type === 'code' && post.code_content) {
+      setShowCodeModal(true);
+    }
+  };
+
   return (
     <>
       <div className="bg-gray-800 rounded-xl overflow-hidden border border-gray-700 mx-2 lg:mx-0">
@@ -134,7 +135,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
           {/* Tags */}
           {post.tags && post.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
-              {post.tags.map((tag, index) => (
+              {post.tags.map((tag: string, index: number) => (
                 <span
                   key={index}
                   className="text-purple-400 text-xs lg:text-sm hover:text-purple-300 cursor-pointer"
@@ -145,9 +146,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
             </div>
           )}
 
-          {/* Code Block */}
+          {/* Code Block - Now clickable */}
           {post.type === 'code' && post.code_content && post.code_language && (
-            <div className="bg-gray-900 rounded-lg overflow-hidden mb-4">
+            <div 
+              className="bg-gray-900 rounded-lg overflow-hidden mb-4 cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all"
+              onClick={handleCodeClick}
+            >
               <div className="flex items-center justify-between px-4 py-2 bg-gray-700">
                 <span className="text-sm text-gray-300 capitalize flex items-center">
                   <span className="mr-2">{post.code_language}</span>
@@ -155,7 +159,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
                     {post.code_language.toUpperCase()}
                   </span>
                 </span>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={handleEditCode}
                     className="flex items-center space-x-1 px-2 lg:px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs lg:text-sm rounded-md transition-colors"
@@ -179,14 +183,13 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
                     onClick={handleOpenPlayground}
                     className="flex items-center space-x-1 px-2 lg:px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs lg:text-sm rounded-md transition-colors"
                   >
-                    <Code className="w-3 h-3" />
                     <span>Playground</span>
                   </button>
                 </div>
               </div>
               
               {useAdvancedEditor ? (
-                <div className="p-0">
+                <div className="p-0" onClick={(e) => e.stopPropagation()}>
                   <CodeEditor
                     initialCode={post.code_content}
                     language={post.code_language}
@@ -197,7 +200,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
                 </div>
               ) : (
                 <>
-                  <div className="overflow-x-auto text-xs lg:text-sm">
+                  <div className="overflow-x-auto text-xs lg:text-sm max-h-40 overflow-y-hidden relative">
                     <SyntaxHighlighter
                       language={post.code_language}
                       style={oneDark}
@@ -210,11 +213,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
                     >
                       {post.code_content}
                     </SyntaxHighlighter>
+                    <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-gray-900 to-transparent pointer-events-none"></div>
+                  </div>
+                  <div className="px-4 py-2 bg-gray-700 text-xs text-gray-400 text-center">
+                    Click to view full code
                   </div>
                   
                   {/* In-feed Output */}
                   {inFeedOutput && (
-                    <div className="border-t border-gray-600">
+                    <div className="border-t border-gray-600" onClick={(e) => e.stopPropagation()}>
                       <div className="px-4 py-2 bg-gray-700 border-b border-gray-600">
                         <span className="text-sm font-medium text-gray-300">Output</span>
                       </div>
@@ -277,7 +284,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
                 {/* Tech Stack */}
                 {post.project_tech_stack && post.project_tech_stack.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {post.project_tech_stack.map((tech, index) => (
+                    {post.project_tech_stack.map((tech: string, index: number) => (
                       <span
                         key={index}
                         className="px-2 py-1 bg-gray-600 text-gray-200 text-xs rounded-md"
@@ -336,7 +343,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
               className="flex items-center space-x-1 text-gray-400 hover:text-blue-500 transition-colors"
             >
               <MessageCircle className="w-5 h-5" />
-              <span className="text-xs lg:text-sm">{commentsCount}</span>
+              <span className="text-xs lg:text-sm">{post.comments_count || 0}</span>
             </button>
             
             <button
@@ -344,7 +351,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
               className="flex items-center space-x-1 text-gray-400 hover:text-green-500 transition-colors"
             >
               <Share className="w-5 h-5" />
-              <span className="text-xs lg:text-sm">{sharesCount}</span>
+              <span className="text-xs lg:text-sm">{post.shares_count || 0}</span>
             </button>
           </div>
           
@@ -367,6 +374,13 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
           </div>
         )}
       </div>
+
+      {/* Code Post Modal */}
+      <CodePostModal
+        isOpen={showCodeModal}
+        onClose={() => setShowCodeModal(false)}
+        post={post}
+      />
 
       {/* Code Playground Modal */}
       {showPlayground && post.code_content && post.code_language && (

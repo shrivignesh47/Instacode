@@ -1,13 +1,11 @@
+
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   ArrowLeft,
-  Loader2,
-  FileText,
-  Code,
-  Image
+  Loader2
 } from 'lucide-react';
 import ProfileHeader from '../components/ProfileHeader';
 import EditProfileModal from '../components/EditProfileModal';
@@ -400,51 +398,28 @@ const ProfilePage = () => {
       <ContentTabs
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        posts={posts}
       />
 
       {/* Posts Section */}
-      {activeTab === 'posts' && (
-        <PostGrid
-          posts={posts}
-          totalPosts={totalPosts}
-          currentPage={currentPage}
-          postsPerPage={postsPerPage}
-          sortOrder={sortOrder}
-          searchQuery={searchQuery}
-          likeCount={likeCount}
-          isPostLiked={isPostLiked}
-          isBookmarked={isBookmarked}
-          onToggleSortOrder={toggleSortOrder}
-          onPageChange={handlePageChange}
-          onSearchChange={setSearchQuery}
-          onPostOptions={togglePostOptions}
-          onLikePost={handleLikePost}
-          onBookmarkPost={handleBookmarkPost}
-          onShareClick={handleShareClick}
-        />
-      )}
-
-      {/* Other tab content placeholders */}
-      {activeTab === 'projects' && (
-        <div className="text-center py-12 text-gray-400">
-          <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>No projects yet</p>
-        </div>
-      )}
-      
-      {activeTab === 'code' && (
-        <div className="text-center py-12 text-gray-400">
-          <Code className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>No code snippets yet</p>
-        </div>
-      )}
-      
-      {activeTab === 'media' && (
-        <div className="text-center py-12 text-gray-400">
-          <Image className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>No media yet</p>
-        </div>
-      )}
+      <PostGrid
+        posts={posts}
+        currentPage={currentPage}
+        postsPerPage={postsPerPage}
+        sortOrder={sortOrder}
+        searchQuery={searchQuery}
+        likeCount={likeCount}
+        isPostLiked={isPostLiked}
+        isBookmarked={isBookmarked}
+        activeTab={activeTab}
+        onToggleSortOrder={toggleSortOrder}
+        onPageChange={handlePageChange}
+        onSearchChange={setSearchQuery}
+        onPostOptions={togglePostOptions}
+        onLikePost={handleLikePost}
+        onBookmarkPost={handleBookmarkPost}
+        onShareClick={handleShareClick}
+      />
 
       <PostOptionsDropdown
         isOpen={isPostOptionsOpen}

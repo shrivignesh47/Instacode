@@ -1,17 +1,24 @@
 
-import { User, FileText, Code, Image } from 'lucide-react';
+import { User, FileText, Code, Image, Video } from 'lucide-react';
 
 interface ContentTabsProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  posts: any[];
 }
 
-const ContentTabs = ({ activeTab, onTabChange }: ContentTabsProps) => {
+const ContentTabs = ({ activeTab, onTabChange, posts }: ContentTabsProps) => {
+  const getPostCountByType = (type: string) => {
+    if (type === 'posts') return posts.length;
+    return posts.filter(post => post.type === type).length;
+  };
+
   const tabs = [
     { id: 'posts', label: 'All Posts', icon: User },
-    { id: 'projects', label: 'Projects', icon: FileText },
+    { id: 'project', label: 'Projects', icon: FileText },
     { id: 'code', label: 'Code', icon: Code },
-    { id: 'media', label: 'Media', icon: Image },
+    { id: 'image', label: 'Images', icon: Image },
+    { id: 'video', label: 'Videos', icon: Video },
   ];
 
   return (
@@ -19,6 +26,7 @@ const ContentTabs = ({ activeTab, onTabChange }: ContentTabsProps) => {
       <div className="flex border-b border-gray-700">
         {tabs.map((tab) => {
           const Icon = tab.icon;
+          const count = getPostCountByType(tab.id);
           return (
             <button
               key={tab.id}
@@ -31,6 +39,9 @@ const ContentTabs = ({ activeTab, onTabChange }: ContentTabsProps) => {
             >
               <Icon className="w-4 h-4 mr-2" />
               {tab.label}
+              <span className="ml-2 text-xs bg-gray-700 px-2 py-1 rounded-full">
+                {count}
+              </span>
             </button>
           );
         })}
