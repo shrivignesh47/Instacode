@@ -1,597 +1,704 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { 
-  ArrowLeft,
-  Edit,
-  Save,
-  X,
-  Github,
-  Code,
-  Award,
-  Users,
-  Grid,
-  Bookmark,
-  UserPlus,
-  UserCheck,
-  CheckCircle,
-  Play,
-  FolderOpen,
-  Image as ImageIcon,
-  Video,
-  MapPin,
-  Calendar,
-  ExternalLink,
-  Linkedin,
-  Twitter,
-  Globe,
-  MessageCircle,
-  Loader
-} from 'lucide-react';
+
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase, type PostWithUser } from '../lib/supabaseClient';
-import PostCard from '../components/PostCard';
+import { 
+  Check, 
+  MoreHorizontal,
+  Loader2,
+  ArrowLeft,
+  ArrowRight,
+  Search,
+  Heart,
+  HeartOff,
+  Bookmark,
+  BookmarkMinus,
+  Share2,
+  Trash2,
+  Copy,
+  ExternalLink,
+  Edit,
+} from 'lucide-react';
 
 const ProfilePage = () => {
-  const { username } = useParams();
-  const { user, fetchProfileByUsername, updateProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'posts' | 'projects' | 'code' | 'media'>('posts');
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const { username } = useParams<{ username: string }>();
+  const [profile, setProfile] = useState<any>(null);
+  const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [posts, setPosts] = useState<PostWithUser[]>([]);
-  const [postsLoading, setPostsLoading] = useState(false);
-  
-  const [profileData, setProfileData] = useState<any>(null);
-  const isOwnProfile = user?.username === username;
+  const { user } = useAuth();
+  const [isCurrentUser, setIsCurrentUser] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [editProfile, setEditProfile] = useState(false);
+    const [newDisplayName, setNewDisplayName] = useState('');
+    const [newBio, setNewBio] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+    const [currentPage, setCurrentPage] = useState(1);
+    const postsPerPage = 6;
+    const [totalPosts, setTotalPosts] = useState(0);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedPost, setSelectedPost] = useState<any>(null);
+    const [isPostOptionsOpen, setIsPostOptionsOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [isPostLiked, setIsPostLiked] = useState(false);
+    const [likeCount, setLikeCount] = useState(0);
+    const [isBookmarked, setIsBookmarked] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [shareLink, setShareLink] = useState('');
+    const [isCodeCopied, setIsCodeCopied] = useState(false);
+    const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
-  const [editProfileData, setEditProfileData] = useState({
-    username: '',
-    bio: '',
-    location: '',
-    website: '',
-    githubUrl: '',
-    linkedinUrl: '',
-    twitterUrl: '',
-  });
-
-  // Fetch profile data
   useEffect(() => {
-    const loadProfile = async () => {
-      if (!username) return;
-      
+      if (selectedPost) {
+          setShareLink(`${window.location.origin}/post/${selectedPost.id}`);
+      }
+  }, [selectedPost]);
+
+  useEffect(() => {
+      if (user && profile) {
+          setIsCurrentUser(user.id === profile.id);
+      }
+  }, [user, profile]);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
       setLoading(true);
       setError(null);
-      
       try {
-        const profile = await fetchProfileByUsername(username);
-        if (profile) {
-          setProfileData(profile);
-        } else {
-          setError('User not found');
+        if (!username) {
+          throw new Error('Username is required');
         }
-      } catch (err) {
-        console.error('Error loading profile:', err);
-        setError('Failed to load profile');
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    loadProfile();
-  }, [username, fetchProfileByUsername]);
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('username', username)
+          .single();
 
-  // Fetch user posts
-  useEffect(() => {
-    const loadPosts = async () => {
-      if (!profileData?.id) return;
-      
-      setPostsLoading(true);
-      try {
-        const { data: postsData, error: postsError } = await supabase
+        if (profileError) {
+          throw profileError;
+        }
+
+        if (!profileData) {
+          throw new Error('Profile not found');
+        }
+
+        setProfile(profileData);
+
+        const { data: postsData, error: postsError, count } = await supabase
           .from('posts')
-          .select(`
-            *,
-            profiles (
-              id,
-              username,
-              avatar_url
-            )
-          `)
+          .select('*, likes(count)', { count: 'exact' })
           .eq('user_id', profileData.id)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: sortOrder === 'oldest' })
+          .range((currentPage - 1) * postsPerPage, currentPage * postsPerPage - 1);
 
         if (postsError) {
           throw postsError;
         }
 
-        // Check which posts the current user has liked
-        let postsWithLikes = postsData || [];
+        setPosts(postsData || []);
+        setTotalPosts(count || 0);
+
         if (user) {
-          const { data: likesData } = await supabase
-            .from('likes')
-            .select('post_id')
-            .eq('user_id', user.id);
+          const { data: followingData, error: followingError } = await supabase
+            .from('followers')
+            .select('*')
+            .eq('follower_id', user.id)
+            .eq('followed_id', profileData.id)
+            .single();
 
-          const likedPostIds = new Set(likesData?.map(like => like.post_id) || []);
-          
-          postsWithLikes = postsData?.map(post => ({
-            ...post,
-            user_liked: likedPostIds.has(post.id)
-          })) || [];
+          if (followingError) {
+            console.error('Error fetching follow status:', followingError);
+          } else {
+            setIsFollowing(!!followingData);
+          }
         }
-
-        setPosts(postsWithLikes as PostWithUser[]);
-      } catch (err) {
-        console.error('Error loading posts:', err);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch profile');
       } finally {
-        setPostsLoading(false);
+        setLoading(false);
       }
     };
 
-    loadPosts();
-  }, [profileData?.id, user]);
+    fetchProfile();
+  }, [username, user, isFollowing, sortOrder, currentPage]);
 
-  const handleEditProfile = () => {
-    if (!profileData) return;
-    
-    setEditProfileData({
-      username: profileData.username,
-      bio: profileData.bio,
-      location: profileData.location,
-      website: profileData.website,
-      githubUrl: profileData.githubUrl,
-      linkedinUrl: profileData.linkedinUrl,
-      twitterUrl: profileData.twitterUrl,
-    });
-    setIsEditing(true);
-  };
+    useEffect(() => {
+        if (selectedPost) {
+            const fetchLikeStatus = async () => {
+                if (user) {
+                    const { data: likeData, error: likeError } = await supabase
+                        .from('likes')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .eq('post_id', selectedPost.id)
+                        .single();
 
-  const handleSaveProfile = async () => {
-    try {
-      const result = await updateProfile(editProfileData);
-      
-      if (result.success) {
-        // Refresh profile data
-        const updatedProfile = await fetchProfileByUsername(username!);
-        if (updatedProfile) {
-          setProfileData(updatedProfile);
+                    if (likeError) {
+                        console.error('Error fetching like status:', likeError);
+                    } else {
+                        setIsPostLiked(!!likeData);
+                    }
+                }
+            };
+
+            const fetchBookmarkStatus = async () => {
+                if (user) {
+                    const { data: bookmarkData, error: bookmarkError } = await supabase
+                        .from('bookmarks')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .eq('post_id', selectedPost.id)
+                        .single();
+
+                    if (bookmarkError) {
+                        console.error('Error fetching bookmark status:', bookmarkError);
+                    } else {
+                        setIsBookmarked(!!bookmarkData);
+                    }
+                }
+            };
+
+            fetchLikeStatus();
+            fetchBookmarkStatus();
         }
-        setIsEditing(false);
+    }, [selectedPost, user]);
+
+    useEffect(() => {
+        const fetchLikeCount = async () => {
+            if (selectedPost) {
+                const { data: likesData, error: likesError } = await supabase
+                    .from('likes')
+                    .select('count', { count: 'exact' })
+                    .eq('post_id', selectedPost.id);
+
+                if (likesError) {
+                    console.error('Error fetching like count:', likesError);
+                } else {
+                    setLikeCount(likesData ? likesData.length : 0);
+                }
+            }
+        };
+
+        fetchLikeCount();
+    }, [selectedPost, isPostLiked]);
+
+  const handleFollow = async () => {
+    if (!user) {
+      setError('You must be logged in to follow.');
+      return;
+    }
+
+    setFollowLoading(true);
+    setError(null);
+
+    try {
+      if (isFollowing) {
+        const { error: unfollowError } = await supabase
+          .from('followers')
+          .delete()
+          .eq('follower_id', user.id)
+          .eq('followed_id', profile.id);
+
+        if (unfollowError) {
+          throw unfollowError;
+        }
+        setIsFollowing(false);
       } else {
-        setError(result.error || 'Failed to update profile');
+        const { error: followError } = await supabase
+          .from('followers')
+          .insert({
+            follower_id: user.id,
+            followed_id: profile.id,
+          });
+
+        if (followError) {
+          throw followError;
+        }
+        setIsFollowing(true);
       }
-    } catch (err) {
-      console.error('Error saving profile:', err);
-      setError('Failed to update profile');
+    } catch (err: any) {
+      setError(err.message || 'Failed to update follow status.');
+    } finally {
+      setFollowLoading(false);
     }
   };
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditProfileData({
-      username: '',
-      bio: '',
-      location: '',
-      website: '',
-      githubUrl: '',
-      linkedinUrl: '',
-      twitterUrl: '',
-    });
-  };
+    const handleEditProfile = () => {
+        setNewDisplayName(profile.display_name || '');
+        setNewBio(profile.bio || '');
+        setEditProfile(true);
+    };
 
-  const handleStartConversation = () => {
-    // Navigate to messages with the user
-    window.location.href = `/messages?user=${profileData.username}`;
-  };
+    const handleSaveProfile = async () => {
+        setIsSaving(true);
+        setSaveError(null);
 
-  const tabs = [
-    { id: 'posts', label: 'All Posts', icon: Users, count: profileData?.posts || 0 },
-    { id: 'projects', label: 'Projects', icon: FolderOpen, count: posts.filter(p => p.type === 'project').length },
-    { id: 'code', label: 'Code', icon: Code, count: posts.filter(p => p.type === 'code').length },
-    { id: 'media', label: 'Media', icon: ImageIcon, count: posts.filter(p => p.type === 'image' || p.type === 'video').length },
-  ];
+        try {
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({
+                    display_name: newDisplayName,
+                    bio: newBio,
+                })
+                .eq('id', user?.id);
 
-  const codingPlatforms = [
-    { 
-      name: 'GitHub', 
-      icon: Github, 
-      key: 'githubUrl',
-      color: 'hover:bg-gray-700'
-    },
-    { 
-      name: 'LinkedIn', 
-      icon: Linkedin, 
-      key: 'linkedinUrl',
-      color: 'hover:bg-blue-600'
-    },
-    { 
-      name: 'Twitter', 
-      icon: Twitter, 
-      key: 'twitterUrl',
-      color: 'hover:bg-blue-600'
-    },
-  ];
+            if (updateError) {
+                throw updateError;
+            }
 
-  const getFilteredPosts = () => {
-    switch (activeTab) {
-      case 'projects':
-        return posts.filter(post => post.type === 'project');
-      case 'code':
-        return posts.filter(post => post.type === 'code');
-      case 'media':
-        return posts.filter(post => post.type === 'image' || post.type === 'video');
-      default:
-        return posts;
-    }
-  };
+            setProfile({
+                ...profile,
+                display_name: newDisplayName,
+                bio: newBio,
+            });
+            setEditProfile(false);
+        } catch (err: any) {
+            setSaveError(err.message || 'Failed to update profile.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const toggleSortOrder = () => {
+        setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest');
+    };
+
+    const handlePageChange = (newPage: number) => {
+        setCurrentPage(newPage);
+    };
+
+    const togglePostOptions = (post: any) => {
+        setSelectedPost(post);
+        setIsPostOptionsOpen(!isPostOptionsOpen);
+    };
+
+    const handleDeletePost = async () => {
+        if (!selectedPost) return;
+
+        setIsDeleting(true);
+        setDeleteError(null);
+
+        try {
+            const { error: deleteError } = await supabase
+                .from('posts')
+                .delete()
+                .eq('id', selectedPost.id);
+
+            if (deleteError) {
+                throw deleteError;
+            }
+
+            setPosts(posts.filter(post => post.id !== selectedPost.id));
+            setIsPostOptionsOpen(false);
+        } catch (err: any) {
+            setDeleteError(err.message || 'Failed to delete post.');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleLikePost = async () => {
+        if (!user || !selectedPost) return;
+
+        try {
+            if (isPostLiked) {
+                const { error: unlikeError } = await supabase
+                    .from('likes')
+                    .delete()
+                    .eq('user_id', user.id)
+                    .eq('post_id', selectedPost.id);
+
+                if (unlikeError) {
+                    throw unlikeError;
+                }
+                setIsPostLiked(false);
+                setLikeCount((prevCount: number) => prevCount > 0 ? prevCount - 1 : 0);
+            } else {
+                const { error: likeError } = await supabase
+                    .from('likes')
+                    .insert({
+                        user_id: user.id,
+                        post_id: selectedPost.id,
+                    });
+
+                if (likeError) {
+                    throw likeError;
+                }
+                setIsPostLiked(true);
+                setLikeCount((prevCount: number) => prevCount + 1);
+            }
+        } catch (err: any) {
+            console.error('Error liking/unliking post:', err);
+        }
+    };
+
+    const handleBookmarkPost = async () => {
+        if (!user || !selectedPost) return;
+
+        try {
+            if (isBookmarked) {
+                const { error: unbookmarkError } = await supabase
+                    .from('bookmarks')
+                    .delete()
+                    .eq('user_id', user.id)
+                    .eq('post_id', selectedPost.id);
+
+                if (unbookmarkError) {
+                    throw unbookmarkError;
+                }
+                setIsBookmarked(false);
+            } else {
+                const { error: bookmarkError } = await supabase
+                    .from('bookmarks')
+                    .insert({
+                        user_id: user.id,
+                        post_id: selectedPost.id,
+                    });
+
+                if (bookmarkError) {
+                    throw bookmarkError;
+                }
+                setIsBookmarked(true);
+            }
+        } catch (err: any) {
+            console.error('Error bookmarking/unbookmarking post:', err);
+        }
+    };
+
+    const handleShareClick = () => {
+        setIsShareModalOpen(true);
+    };
+
+    const handleCloseShareModal = () => {
+        setIsShareModalOpen(false);
+    };
+
+    const handleCopyLink = () => {
+        navigator.clipboard.writeText(shareLink);
+        setIsCodeCopied(true);
+        setTimeout(() => setIsCodeCopied(false), 2000);
+    };
+
+    const toggleDescription = () => {
+        setIsDescriptionExpanded(!isDescriptionExpanded);
+    };
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 lg:px-0">
-        <div className="flex items-center justify-center py-12">
-          <div className="flex items-center space-x-3">
-            <Loader className="w-8 h-8 text-purple-500 animate-spin" />
-            <span className="text-white text-lg">Loading profile...</span>
-          </div>
-        </div>
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
       </div>
     );
   }
 
-  if (error || !profileData) {
+  if (error) {
     return (
-      <div className="max-w-4xl mx-auto px-4 lg:px-0">
-        <div className="flex items-center space-x-4 mb-6">
-          <Link 
-            to="/home" 
-            className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="hidden sm:inline">Back to Feed</span>
-          </Link>
-        </div>
-        <div className="text-center py-12">
-          <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Users className="w-8 h-8 text-gray-400" />
-          </div>
-          <h3 className="text-xl font-medium text-gray-400 mb-2">
-            {error || 'User not found'}
-          </h3>
-          <p className="text-gray-500">
-            The profile you're looking for doesn't exist or has been removed.
-          </p>
-        </div>
-      </div>
+      <div className="text-red-500 text-center mt-4">Error: {error}</div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="text-gray-500 text-center mt-4">Profile not found.</div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 lg:px-0">
-      {/* Header with Back Button */}
-      <div className="flex items-center space-x-4 mb-6">
-        <Link 
-          to="/home" 
-          className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="hidden sm:inline">Back to Feed</span>
-        </Link>
-      </div>
-
+    <div className="max-w-4xl mx-auto p-4 dark:bg-gray-900 dark:text-white">
       {/* Profile Header */}
-      <div className="mb-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
-          {/* Avatar */}
-          <div className="relative">
-            <div className="w-32 h-32 lg:w-40 lg:h-40 rounded-full border-4 border-purple-500 p-1">
-              <img
-                src={profileData.avatar}
-                alt={profileData.username}
-                className="w-full h-full rounded-full object-cover"
-              />
-            </div>
-            {profileData.verified && (
-              <div className="absolute bottom-2 right-2 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center border-2 border-gray-900">
-                <CheckCircle className="w-5 h-5 text-white" />
-              </div>
-            )}
-          </div>
-          
-          {/* Profile Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-              <div>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editProfileData.username}
-                    onChange={(e) => setEditProfileData({ ...editProfileData, username: e.target.value })}
-                    className="text-2xl lg:text-3xl font-bold text-white bg-gray-700 border border-gray-600 rounded px-3 py-1 mb-2"
-                    placeholder="Username"
-                  />
-                ) : (
-                  <h1 className="text-2xl lg:text-3xl font-bold text-white mb-1">
-                    {profileData.username}
-                  </h1>
-                )}
-                
-                {isEditing ? (
-                  <textarea
-                    value={editProfileData.bio}
-                    onChange={(e) => setEditProfileData({ ...editProfileData, bio: e.target.value })}
-                    className="text-lg text-gray-400 bg-gray-700 border border-gray-600 rounded px-3 py-2 w-full resize-none"
-                    rows={2}
-                    placeholder="Bio"
-                  />
-                ) : (
-                  <p className="text-gray-400 text-lg">{profileData.bio}</p>
-                )}
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="mt-4 sm:mt-0 flex space-x-2">
-                {isOwnProfile ? (
-                  <>
-                    {isEditing ? (
-                      <>
-                        <button
-                          onClick={handleSaveProfile}
-                          className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                        >
-                          <Save className="w-4 h-4" />
-                          <span>Save</span>
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="flex items-center space-x-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                          <span>Cancel</span>
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={handleEditProfile}
-                        className="flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                      >
-                        <Edit className="w-4 h-4" />
-                        <span>Edit Profile</span>
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => setIsFollowing(!isFollowing)}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                        isFollowing
-                          ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                          : 'bg-purple-600 hover:bg-purple-700 text-white'
-                      }`}
-                    >
-                      {isFollowing ? (
-                        <>
-                          <UserCheck className="w-4 h-4" />
-                          <span>Following</span>
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="w-4 h-4" />
-                          <span>Follow</span>
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={handleStartConversation}
-                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>Message</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="flex items-center space-x-8 mb-6">
-              <div className="text-center">
-                <div className="text-xl font-bold text-white">{profileData.posts}</div>
-                <div className="text-sm text-gray-400">Posts</div>
-              </div>
-              <div className="text-center cursor-pointer hover:text-purple-400 transition-colors">
-                <div className="text-xl font-bold text-white">{profileData.followers.toLocaleString()}</div>
-                <div className="text-sm text-gray-400">Followers</div>
-              </div>
-              <div className="text-center cursor-pointer hover:text-purple-400 transition-colors">
-                <div className="text-xl font-bold text-white">{profileData.following}</div>
-                <div className="text-sm text-gray-400">Following</div>
-              </div>
-            </div>
-
-            {/* Profile Details */}
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400 mb-6">
-              {profileData.location && (
-                <>
-                  {isEditing ? (
-                    <div className="flex items-center space-x-1">
-                      <MapPin className="w-4 h-4" />
-                      <input
-                        type="text"
-                        value={editProfileData.location}
-                        onChange={(e) => setEditProfileData({ ...editProfileData, location: e.target.value })}
-                        className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white text-sm"
-                        placeholder="Location"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-1">
-                      <MapPin className="w-4 h-4" />
-                      <span>{profileData.location}</span>
-                    </div>
-                  )}
-                </>
-              )}
-              
-              <div className="flex items-center space-x-1">
-                <Calendar className="w-4 h-4" />
-                <span>Joined {profileData.joinDate}</span>
-              </div>
-              
-              {profileData.website && (
-                <>
-                  {isEditing ? (
-                    <div className="flex items-center space-x-1">
-                      <Globe className="w-4 h-4" />
-                      <input
-                        type="url"
-                        value={editProfileData.website}
-                        onChange={(e) => setEditProfileData({ ...editProfileData, website: e.target.value })}
-                        className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white text-sm"
-                        placeholder="Website URL"
-                      />
-                    </div>
-                  ) : (
-                    <a
-                      href={profileData.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center space-x-1 hover:text-purple-400 transition-colors"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      <span>Website</span>
-                    </a>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Coding Platform Links */}
-            {isEditing ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {codingPlatforms.map((platform) => {
-                  const Icon = platform.icon;
-                  return (
-                    <div key={platform.key} className="flex items-center space-x-2">
-                      <Icon className="w-4 h-4 text-gray-400" />
-                      <input
-                        type="url"
-                        value={editProfileData[platform.key as keyof typeof editProfileData]}
-                        onChange={(e) => setEditProfileData({ 
-                          ...editProfileData, 
-                          [platform.key]: e.target.value 
-                        })}
-                        className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm"
-                        placeholder={`${platform.name} URL`}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-3">
-                {codingPlatforms.map((platform) => {
-                  const Icon = platform.icon;
-                  const url = profileData[platform.key as keyof typeof profileData] as string;
-                  
-                  if (!url) return null;
-                  
-                  return (
-                    <a
-                      key={platform.name}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex items-center space-x-2 px-4 py-2 bg-gray-800 ${platform.color} text-white rounded-lg transition-colors border border-gray-700`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span className="text-sm">{platform.name}</span>
-                    </a>
-                  );
-                })}
-              </div>
-            )}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-4">
+          <img
+            src={`https://api.dicebear.com/7.x/personas/svg?seed=${profile.username}`}
+            alt={profile.username}
+            className="w-16 h-16 rounded-full"
+          />
+          <div>
+            <h2 className="text-2xl font-bold">{profile.display_name || profile.username}</h2>
+            <p className="text-gray-500">@{profile.username}</p>
           </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-700 mb-8">
-        <div className="flex space-x-0 overflow-x-auto">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center space-x-2 px-4 py-4 border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-purple-500 text-purple-400'
-                    : 'border-transparent text-gray-400 hover:text-white'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
-                {tab.count > 0 && (
-                  <span className="bg-gray-700 text-gray-300 px-2 py-1 rounded-full text-xs">
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div>
-        {postsLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="flex items-center space-x-3">
-              <Loader className="w-6 h-6 text-purple-500 animate-spin" />
-              <span className="text-white">Loading posts...</span>
-            </div>
-          </div>
-        ) : (
-          <>
-            {getFilteredPosts().length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                  {activeTab === 'projects' ? (
-                    <FolderOpen className="w-8 h-8 text-gray-400" />
-                  ) : activeTab === 'code' ? (
-                    <Code className="w-8 h-8 text-gray-400" />
-                  ) : activeTab === 'media' ? (
-                    <ImageIcon className="w-8 h-8 text-gray-400" />
-                  ) : (
-                    <Users className="w-8 h-8 text-gray-400" />
-                  )}
-                </div>
-                <h3 className="text-xl font-medium text-gray-400 mb-2">
-                  No {activeTab} yet
-                </h3>
-                <p className="text-gray-500">
-                  {activeTab === 'projects' 
-                    ? 'Projects will appear here when shared' 
-                    : activeTab === 'code'
-                    ? 'Code snippets will appear here when shared'
-                    : activeTab === 'media'
-                    ? 'Images and videos will appear here when shared'
-                    : 'Posts will appear here when shared'
-                  }
-                </p>
-              </div>
+        {/* Follow/Unfollow Button */}
+        {!isCurrentUser && (
+          <button
+            onClick={handleFollow}
+            disabled={followLoading}
+            className={`px-4 py-2 rounded-md font-medium ${
+              isFollowing
+                ? 'bg-gray-600 hover:bg-gray-700 text-white'
+                : 'bg-purple-600 hover:bg-purple-700 text-white'
+            }`}
+          >
+            {followLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <div className="space-y-6">
-                {getFilteredPosts().map((post) => (
-                  <PostCard key={post.id} post={post} />
-                ))}
-              </div>
+              isFollowing ? 'Unfollow' : 'Follow'
             )}
-          </>
+          </button>
         )}
       </div>
+
+        {/* Edit Profile Section */}
+        {isCurrentUser && (
+            <div className="mb-6">
+                {editProfile ? (
+                    <div className="space-y-4">
+                        <div>
+                            <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Display Name
+                            </label>
+                            <input
+                                type="text"
+                                id="displayName"
+                                className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                value={newDisplayName}
+                                onChange={(e) => setNewDisplayName(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="bio" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Bio
+                            </label>
+                            <textarea
+                                id="bio"
+                                rows={3}
+                                className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                value={newBio}
+                                onChange={(e) => setNewBio(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex justify-end space-x-2">
+                            <button
+                                onClick={handleSaveProfile}
+                                disabled={isSaving}
+                                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                            >
+                                {isSaving ? (
+                                    <>
+                                        Saving...
+                                        <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+                                    </>
+                                ) : 'Save'}
+                            </button>
+                            <button
+                                onClick={() => setEditProfile(false)}
+                                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                        {saveError && (
+                            <div className="text-red-500 text-sm" role="alert">
+                                {saveError}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="flex justify-between items-center">
+                        <p className="text-gray-500">{profile.bio || 'No bio available.'}</p>
+                        <button
+                            onClick={handleEditProfile}
+                            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit Profile
+                        </button>
+                    </div>
+                )}
+            </div>
+        )}
+
+      {/* Posts Section */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-semibold">Posts</h3>
+            <div className="flex items-center space-x-4">
+                <button
+                    onClick={toggleSortOrder}
+                    className="px-3 py-2 rounded-md text-sm bg-gray-700 hover:bg-gray-600 text-gray-300"
+                >
+                    Sort: {sortOrder === 'newest' ? 'Newest' : 'Oldest'}
+                </button>
+                <div className="relative">
+                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                        type="text"
+                        placeholder="Search posts..."
+                        className="pl-8 pr-4 py-2 rounded-md bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+            </div>
+        </div>
+
+        {/* Post Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {posts
+            .filter((post: any) => {
+              if (!searchQuery) return true;
+              const title = post.title || post.content || '';
+              const description = post.description || post.content || '';
+              return title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                     description.toLowerCase().includes(searchQuery.toLowerCase());
+            })
+            .map((post: any) => (
+              <div key={post.id} className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                <div className="relative">
+                  {post.media_url && (
+                    <img
+                      src={post.media_url}
+                      alt={post.title || 'Post image'}
+                      className="w-full h-48 object-cover"
+                    />
+                  )}
+                  <div className="absolute top-2 right-2">
+                    <button
+                      onClick={() => togglePostOptions(post)}
+                      className="p-2 bg-gray-700 rounded-full hover:bg-gray-600"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h4 className="text-lg font-semibold mb-2">{post.title || 'Untitled'}</h4>
+                    <p className={`text-gray-400 text-sm mb-3 ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}>
+                        {post.description || post.content || 'No description'}
+                    </p>
+                    {(post.description || post.content) && (post.description || post.content).length > 100 && (
+                        <button onClick={toggleDescription} className="text-purple-500 text-xs hover:underline">
+                            {isDescriptionExpanded ? 'Show Less' : 'Show More'}
+                        </button>
+                    )}
+                  <div className="flex items-center justify-between text-gray-500 text-sm">
+                    <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                    <div className="flex space-x-3">
+                      <button onClick={handleLikePost}>
+                        {isPostLiked ? <Heart className="w-4 h-4 text-red-500" /> : <HeartOff className="w-4 h-4" />}
+                      </button>
+                      <span>{likeCount}</span>
+                      <button onClick={handleBookmarkPost}>
+                        {isBookmarked ? <Bookmark className="w-4 h-4 text-blue-500" /> : <BookmarkMinus className="w-4 h-4" />}
+                      </button>
+                      <button onClick={handleShareClick}>
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+        </div>
+
+        {/* Pagination */}
+        {totalPosts > postsPerPage && (
+            <div className="flex justify-center mt-6">
+                <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <ArrowLeft className="w-4 h-4 inline-block mr-2" />
+                    Previous
+                </button>
+                <span className="mx-4 text-gray-400">Page {currentPage} of {Math.ceil(totalPosts / postsPerPage)}</span>
+                <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === Math.ceil(totalPosts / postsPerPage)}
+                    className="px-4 py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Next
+                    <ArrowRight className="w-4 h-4 inline-block ml-2" />
+                </button>
+            </div>
+        )}
+      </div>
+
+        {/* Post Options Dropdown */}
+        {isPostOptionsOpen && selectedPost && (
+            <div className="absolute top-0 right-0 mt-8 mr-2 w-48 bg-gray-800 border border-gray-700 rounded-md shadow-md z-10">
+                <button
+                    onClick={handleDeletePost}
+                    disabled={isDeleting}
+                    className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-700"
+                >
+                    {isDeleting ? (
+                        <>
+                            Deleting...
+                            <Loader2 className="w-4 h-4 ml-2 animate-spin inline-block" />
+                        </>
+                    ) : (
+                        <>
+                            <Trash2 className="w-4 h-4 mr-2 inline-block" />
+                            Delete Post
+                        </>
+                    )}
+                </button>
+                {deleteError && (
+                    <div className="text-red-500 text-sm px-4 py-2" role="alert">
+                        {deleteError}
+                    </div>
+                )}
+            </div>
+        )}
+
+        {/* Share Modal */}
+        {isShareModalOpen && selectedPost && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-20 flex items-center justify-center">
+                <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+                    <h3 className="text-lg font-semibold mb-4">Share Post</h3>
+                    <div className="flex items-center justify-between mb-4">
+                        <input
+                            type="text"
+                            value={shareLink}
+                            readOnly
+                            className="w-3/4 px-4 py-2 rounded-md bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                        <button
+                            onClick={handleCopyLink}
+                            className="px-4 py-2 rounded-md bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                            {isCodeCopied ? (
+                                <>
+                                    Copied!
+                                    <Check className="w-4 h-4 ml-2 inline-block" />
+                                </>
+                            ) : (
+                                <>
+                                    Copy Link
+                                    <Copy className="w-4 h-4 ml-2 inline-block" />
+                                </>
+                            )}
+                        </button>
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                        <a
+                            href={shareLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                            Open in New Tab
+                            <ExternalLink className="w-4 h-4 ml-2 inline-block" />
+                        </a>
+                        <button
+                            onClick={handleCloseShareModal}
+                            className="px-4 py-2 rounded-md bg-gray-600 hover:bg-gray-700 text-white"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
   );
 };

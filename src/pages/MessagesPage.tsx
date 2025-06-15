@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Search, 
   Plus, 
@@ -10,17 +10,8 @@ import {
   Paperclip, 
   Smile,
   ArrowLeft,
-  Circle,
   Check,
-  CheckCheck,
-  Image as ImageIcon,
-  ExternalLink,
-  Github,
-  Code,
-  FolderOpen,
-  Heart,
-  Share,
-  User
+  CheckCheck
 } from 'lucide-react';
 import Layout from '../components/Layout';
 import UserSearchModal from '../components/UserSearchModal';
@@ -89,45 +80,67 @@ const MessagesPage = () => {
   useEffect(() => {
     if (!user) return;
 
-    // Subscribe to new messages
+    console.log('Setting up real-time subscriptions for user:', user.id);
+
+    // Subscribe to new messages for all conversations
     const messagesChannel = supabase
-      .channel('messages_realtime')
+      .channel('user_messages')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'messages'
+          table: 'messages',
+          filter: `conversation_id=in.(${conversations.map(c => c.id).join(',')})`
         },
-        (payload) => {
-          console.log('New message received:', payload);
-          handleNewMessage(payload.new as any);
+        async (payload) => {
+          console.log('Real-time: New message received', payload);
+          await handleNewMessage(payload.new as any);
         }
       )
-      .subscribe();
-
-    // Subscribe to conversation updates
-    const conversationsChannel = supabase
-      .channel('conversations_realtime')
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'conversations'
+          table: 'messages',
+          filter: `conversation_id=in.(${conversations.map(c => c.id).join(',')})`
+        },
+        async (payload) => {
+          console.log('Real-time: Message updated', payload);
+          await handleMessageUpdate(payload.new as any);
+        }
+      )
+      .subscribe((status) => {
+        console.log('Messages channel subscription status:', status);
+      });
+
+    // Subscribe to conversation updates
+    const conversationsChannel = supabase
+      .channel('user_conversations')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+          filter: `or(participant_1.eq.${user.id},participant_2.eq.${user.id})`
         },
         (payload) => {
-          console.log('Conversation updated:', payload);
+          console.log('Real-time: Conversation updated', payload);
           loadConversations();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Conversations channel subscription status:', status);
+      });
 
     return () => {
+      console.log('Cleaning up real-time subscriptions');
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(conversationsChannel);
     };
-  }, [user, selectedConversation]);
+  }, [user, conversations.length]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -167,6 +180,9 @@ const MessagesPage = () => {
         const otherUser = conv.participant_1 === user.id 
           ? conv.profiles_participant_2 
           : conv.profiles;
+        
+        const otherUserObj = Array.isArray(otherUser) ? otherUser[0] : otherUser;
+        if (!otherUserObj) continue;
 
         // Get last message if exists
         let lastMessage = undefined;
@@ -188,13 +204,13 @@ const MessagesPage = () => {
           participant_2: conv.participant_2,
           last_message_at: conv.last_message_at || new Date().toISOString(),
           other_user: {
-            id: otherUser.id,
-            username: otherUser.username,
-            avatar_url: otherUser.avatar_url || '',
-            bio: otherUser.bio || ''
+            id: otherUserObj.id,
+            username: otherUserObj.username,
+            avatar_url: otherUserObj.avatar_url || '',
+            bio: otherUserObj.bio || ''
           },
           last_message: lastMessage,
-          unread_count: 0 // TODO: Calculate unread count
+          unread_count: 0
         });
       }
 
@@ -220,14 +236,14 @@ const MessagesPage = () => {
           file_url,
           is_read,
           created_at,
-          profiles!messages_sender_id_fkey(username, avatar_url),
-          posts(
+          profiles:profiles!messages_sender_id_fkey(username, avatar_url),
+          posts:posts!messages_shared_post_id_fkey(
             id,
             type,
             content,
             project_title,
             media_url,
-            profiles!posts_user_id_fkey(username, avatar_url)
+            profiles:profiles!posts_user_id_fkey(username, avatar_url)
           )
         `)
         .eq('conversation_id', conversationId)
@@ -238,29 +254,34 @@ const MessagesPage = () => {
         return;
       }
 
-      const formattedMessages: Message[] = data.map(msg => ({
-        id: msg.id,
-        conversation_id: msg.conversation_id,
-        sender_id: msg.sender_id,
-        content: msg.content,
-        message_type: msg.message_type,
-        shared_post_id: msg.shared_post_id,
-        shared_post: msg.posts ? {
-          ...msg.posts,
-          profiles: msg.posts.profiles
-        } as PostWithUser : undefined,
-        file_url: msg.file_url,
-        is_read: msg.is_read,
-        created_at: msg.created_at,
-        sender: {
-          username: msg.profiles.username,
-          avatar_url: msg.profiles.avatar_url || ''
-        }
-      }));
+      const formattedMessages: Message[] = data.map(msg => {
+        const senderProfile = Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles;
+        const postData = Array.isArray(msg.posts) ? msg.posts[0] : msg.posts;
+
+        const sharedPost = postData ? {
+          ...postData,
+          profiles: Array.isArray(postData.profiles) ? postData.profiles[0] : postData.profiles
+        } : undefined;
+        
+        return {
+          id: msg.id,
+          conversation_id: msg.conversation_id,
+          sender_id: msg.sender_id,
+          content: msg.content,
+          message_type: msg.message_type,
+          shared_post_id: msg.shared_post_id,
+          shared_post: sharedPost as PostWithUser | undefined,
+          file_url: msg.file_url,
+          is_read: msg.is_read,
+          created_at: msg.created_at,
+          sender: {
+            username: senderProfile?.username || 'Unknown',
+            avatar_url: senderProfile?.avatar_url || ''
+          }
+        };
+      });
 
       setMessages(formattedMessages);
-
-      // Mark messages as read
       await markMessagesAsRead(conversationId);
     } catch (error) {
       console.error('Error loading messages:', error);
@@ -303,12 +324,13 @@ const MessagesPage = () => {
           file_url,
           is_read,
           created_at,
-          profiles!messages_sender_id_fkey(username, avatar_url)
+          profiles:profiles!messages_sender_id_fkey(username, avatar_url)
         `)
         .eq('id', newMessage.id)
         .single();
 
       if (!error && messageData) {
+        const senderProfile = Array.isArray(messageData.profiles) ? messageData.profiles[0] : messageData.profiles;
         const formattedMessage: Message = {
           id: messageData.id,
           conversation_id: messageData.conversation_id,
@@ -320,45 +342,108 @@ const MessagesPage = () => {
           is_read: messageData.is_read,
           created_at: messageData.created_at,
           sender: {
-            username: messageData.profiles.username,
-            avatar_url: messageData.profiles.avatar_url || ''
+            username: senderProfile?.username || 'Unknown',
+            avatar_url: senderProfile?.avatar_url || ''
           }
         };
 
-        setMessages(prev => [...prev, formattedMessage]);
+        // Check if message already exists to prevent duplicates
+        setMessages(prev => {
+          const exists = prev.find(msg => msg.id === formattedMessage.id);
+          if (exists) {
+            console.log('Message already exists, not adding duplicate');
+            return prev;
+          }
+          console.log('Adding new message to UI');
+          return [...prev, formattedMessage];
+        });
+
+        // Mark as read if it's not from current user
+        if (newMessage.sender_id !== user?.id) {
+          await markMessagesAsRead(selectedConversation.id);
+        }
       }
     }
     
-    // Reload conversations to update last message
-    loadConversations();
+    // Always reload conversations to update last message
+    await loadConversations();
+  };
+
+  const handleMessageUpdate = async (updatedMessage: any) => {
+    console.log('Processing message update:', updatedMessage);
+    
+    if (selectedConversation && updatedMessage.conversation_id === selectedConversation.id) {
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === updatedMessage.id 
+            ? { ...msg, ...updatedMessage }
+            : msg
+        )
+      );
+    }
   };
 
   const sendMessage = async () => {
     if (!messageInput.trim() || !selectedConversation || !user) return;
 
+    const messageContent = messageInput.trim();
     setSendingMessage(true);
+    setMessageInput(''); // Clear input immediately for better UX
+
     try {
+      console.log('Sending message:', messageContent);
+      
       const { data, error } = await supabase
         .from('messages')
         .insert({
           conversation_id: selectedConversation.id,
           sender_id: user.id,
-          content: messageInput.trim(),
+          content: messageContent,
           message_type: 'text'
         })
-        .select()
+        .select(`
+          id,
+          conversation_id,
+          sender_id,
+          content,
+          message_type,
+          shared_post_id,
+          file_url,
+          is_read,
+          created_at
+        `)
         .single();
 
       if (error) {
         console.error('Error sending message:', error);
+        setMessageInput(messageContent); // Restore input on error
         return;
       }
 
       console.log('Message sent successfully:', data);
-      setMessageInput('');
-      // The real-time subscription will handle adding the message to the UI
+      
+      // Add the message immediately to the UI for instant feedback
+      const newMessage: Message = {
+        id: data.id,
+        conversation_id: data.conversation_id,
+        sender_id: data.sender_id,
+        content: data.content,
+        message_type: data.message_type,
+        shared_post_id: data.shared_post_id,
+        file_url: data.file_url,
+        is_read: data.is_read,
+        created_at: data.created_at,
+        sender: {
+          username: user.username || 'You',
+          avatar_url: user.avatar || ''
+        }
+      };
+
+      setMessages(prev => [...prev, newMessage]);
+      
     } catch (error) {
       console.error('Error sending message:', error);
+      setMessageInput(messageContent); // Restore input on error
     } finally {
       setSendingMessage(false);
     }
@@ -379,12 +464,15 @@ const MessagesPage = () => {
   const handleStartConversation = async (selectedUser: any) => {
     if (!user) return;
 
+    const userToStart = Array.isArray(selectedUser) ? selectedUser[0] : selectedUser;
+    if (!userToStart) return;
+
     try {
       // Get or create conversation
       const { data: conversationId, error } = await supabase
         .rpc('get_or_create_conversation', {
           user1_id: user.id,
-          user2_id: selectedUser.id
+          user2_id: userToStart.id
         });
 
       if (error) {
@@ -399,13 +487,13 @@ const MessagesPage = () => {
         conversation = {
           id: conversationId,
           participant_1: user.id,
-          participant_2: selectedUser.id,
+          participant_2: userToStart.id,
           last_message_at: new Date().toISOString(),
           other_user: {
-            id: selectedUser.id,
-            username: selectedUser.username,
-            avatar_url: selectedUser.avatar_url || '',
-            bio: selectedUser.bio || ''
+            id: userToStart.id,
+            username: userToStart.username,
+            avatar_url: userToStart.avatar_url || '',
+            bio: userToStart.bio || ''
           },
           unread_count: 0
         };
@@ -465,52 +553,7 @@ const MessagesPage = () => {
               ? 'bg-purple-600 text-white rounded-br-md'
               : 'bg-gray-700 text-gray-100 rounded-bl-md'
           }`}>
-            {message.message_type === 'post_share' && message.shared_post ? (
-              <div className="space-y-2">
-                {message.content && message.content !== 'Shared a post' && (
-                  <p className="text-sm">{message.content}</p>
-                )}
-                <div className="bg-black bg-opacity-20 rounded-lg p-3 border border-gray-600">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <img
-                      src={message.shared_post.profiles.avatar_url || 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=50'}
-                      alt={message.shared_post.profiles.username}
-                      className="w-5 h-5 rounded-full object-cover"
-                    />
-                    <span className="text-xs font-medium">{message.shared_post.profiles.username}</span>
-                    <span className="text-xs opacity-70 capitalize">{message.shared_post.type}</span>
-                  </div>
-                  <p className="text-sm line-clamp-3">{message.shared_post.content}</p>
-                  {message.shared_post.type === 'project' && message.shared_post.project_title && (
-                    <div className="mt-2">
-                      <p className="text-xs font-medium">{message.shared_post.project_title}</p>
-                    </div>
-                  )}
-                  {message.shared_post.media_url && (
-                    <div className="mt-2">
-                      <img
-                        src={message.shared_post.media_url}
-                        alt="Shared content"
-                        className="w-full h-20 object-cover rounded"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : message.message_type === 'image' && message.file_url ? (
-              <div className="space-y-2">
-                {message.content && (
-                  <p className="text-sm">{message.content}</p>
-                )}
-                <img
-                  src={message.file_url}
-                  alt="Shared image"
-                  className="max-w-full h-auto rounded"
-                />
-              </div>
-            ) : (
-              <p className="text-sm break-words">{message.content}</p>
-            )}
+            <p className="text-sm break-words">{message.content}</p>
           </div>
           
           {/* Message Info */}

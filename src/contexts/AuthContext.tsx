@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
@@ -47,20 +48,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const convertSupabaseUser = async (supabaseUser: SupabaseUser): Promise<User | null> => {
+  const createDefaultUser = (supabaseUser: SupabaseUser): User => {
+    console.log('Creating default user for:', supabaseUser.id);
+    return {
+      id: supabaseUser.id,
+      username: supabaseUser.user_metadata?.username || supabaseUser.email?.split('@')[0] || 'user',
+      email: supabaseUser.email || '',
+      avatar: 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=150',
+      bio: '',
+      githubUrl: '',
+      linkedinUrl: '',
+      twitterUrl: '',
+      website: '',
+      location: '',
+      followers: 0,
+      following: 0,
+      posts: 0,
+      joinDate: new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long' 
+      }),
+      verified: false,
+    };
+  };
+
+  const convertSupabaseUser = async (supabaseUser: SupabaseUser): Promise<User> => {
+    console.log('Converting Supabase user:', supabaseUser.id);
+    
     try {
-      const { data: profile, error } = await supabase
+      // Set a timeout for the query
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile query timeout')), 5000)
+      );
+
+      const queryPromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', supabaseUser.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching user profile:', error);
-        return null;
+      console.log('Querying profiles table...');
+      const { data: profile, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+
+      if (error) {
+        console.log('Profile query error:', error.message);
+        console.log('Using default user due to error');
+        return createDefaultUser(supabaseUser);
       }
 
       if (profile) {
+        console.log('Profile found, converting to user object');
         return {
           id: profile.id,
           username: profile.username,
@@ -81,32 +118,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }),
           verified: false,
         };
-      } else {
-        const username = supabaseUser.user_metadata?.username || supabaseUser.email?.split('@')[0] || 'user';
-        return {
-          id: supabaseUser.id,
-          username,
-          email: supabaseUser.email || '',
-          avatar: 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=150',
-          bio: '',
-          githubUrl: '',
-          linkedinUrl: '',
-          twitterUrl: '',
-          website: '',
-          location: '',
-          followers: 0,
-          following: 0,
-          posts: 0,
-          joinDate: new Date().toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'long' 
-          }),
-          verified: false,
-        };
       }
+
+      console.log('No profile found, using default user');
+      return createDefaultUser(supabaseUser);
+
     } catch (error) {
-      console.error('Error converting Supabase user:', error);
-      return null;
+      console.error('Error in convertSupabaseUser:', error);
+      console.log('Using default user due to exception');
+      return createDefaultUser(supabaseUser);
     }
   };
 
@@ -171,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profileData.twitterUrl !== undefined) updateData.twitter_url = profileData.twitterUrl;
       if (profileData.avatar !== undefined) updateData.avatar_url = profileData.avatar;
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('profiles')
         .update(updateData)
         .eq('id', user.id)
@@ -189,10 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user_metadata: {}
       } as SupabaseUser);
       
-      if (updatedUser) {
-        setUser(updatedUser);
-      }
-
+      setUser(updatedUser);
       return { success: true };
     } catch (error) {
       console.error('Error in updateProfile:', error);
@@ -302,13 +319,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.user && data.session) {
         const convertedUser = await convertSupabaseUser(data.user);
-        if (convertedUser) {
-          setUser(convertedUser);
-          setIsAuthenticated(true);
-          return { success: true };
-        } else {
-          return { success: false, error: 'Failed to load user profile. Please try again.' };
-        }
+        setUser(convertedUser);
+        setIsAuthenticated(true);
+        return { success: true };
       }
 
       return { success: false, error: 'Login failed. Please try again.' };
@@ -363,10 +376,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (data.session) {
           const convertedUser = await convertSupabaseUser(data.user);
-          if (convertedUser) {
-            setUser(convertedUser);
-            setIsAuthenticated(true);
-          }
+          setUser(convertedUser);
+          setIsAuthenticated(true);
         }
 
         return { success: true };
@@ -396,24 +407,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize auth state and listen for changes
   useEffect(() => {
     let mounted = true;
+    console.log('AuthContext: Initializing auth state');
 
     const initializeAuth = async () => {
       try {
+        console.log('AuthContext: Getting session from Supabase');
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('AuthContext: Session retrieved:', session ? 'exists' : 'null');
         
         if (mounted) {
           if (session?.user) {
+            console.log('AuthContext: Converting user from session');
             const convertedUser = await convertSupabaseUser(session.user);
-            if (convertedUser && mounted) {
+            console.log('AuthContext: User converted successfully');
+            if (mounted) {
               setUser(convertedUser);
               setIsAuthenticated(true);
             }
+          } else {
+            console.log('AuthContext: No session found');
           }
+          console.log('AuthContext: Setting loading to false');
           setLoading(false);
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error('AuthContext: Error initializing auth:', error);
         if (mounted) {
+          console.log('AuthContext: Setting loading to false due to error');
           setLoading(false);
         }
       }
@@ -423,28 +443,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session: Session | null) => {
+        console.log('AuthContext: Auth state changed:', event, session ? 'has session' : 'no session');
+        
         if (!mounted) return;
 
         if (session?.user) {
+          console.log('AuthContext: Converting user from auth state change');
           const convertedUser = await convertSupabaseUser(session.user);
-          if (convertedUser && mounted) {
+          console.log('AuthContext: Auth state change conversion completed');
+          if (mounted) {
             setUser(convertedUser);
             setIsAuthenticated(true);
           }
         } else {
           if (mounted) {
+            console.log('AuthContext: Clearing user and authenticated from auth state change');
             setUser(null);
             setIsAuthenticated(false);
           }
+        }
+        
+        if (mounted) {
+          console.log('AuthContext: Setting loading to false after auth state change');
+          setLoading(false);
         }
       }
     );
 
     return () => {
+      console.log('AuthContext: Cleanup - unmounting');
       mounted = false;
       subscription.unsubscribe();
     };
   }, []);
+
+  console.log('AuthContext: Rendering with loading:', loading, 'isAuthenticated:', isAuthenticated, 'user:', user?.username);
 
   return (
     <AuthContext.Provider value={{ 
