@@ -1,5 +1,4 @@
-
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Layout from '../components/Layout';
 import ConversationList from '../components/ConversationList';
 import ChatArea from '../components/ChatArea';
@@ -15,9 +14,38 @@ const MessagesPage = () => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showChatList, setShowChatList] = useState(true);
   const [showUserSearch, setShowUserSearch] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { conversations, loading, loadConversations } = useConversations();
   const { messages, loadMessages, addMessage, updateMessage, setMessages } = useMessages();
+
+  // Auto refresh every 10 seconds when a conversation is selected
+  useEffect(() => {
+    if (!selectedConversation) return;
+
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing messages...');
+      handleRefreshMessages();
+    }, 2000); // 10 seconds
+
+    return () => clearInterval(interval);
+  }, [selectedConversation]);
+
+  // Handle manual refresh of messages
+  const handleRefreshMessages = useCallback(async () => {
+    if (!selectedConversation || isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      console.log('Manually refreshing messages for conversation:', selectedConversation.id);
+      await loadMessages(selectedConversation.id);
+      await loadConversations(); // Also refresh conversations to update last message
+    } catch (error) {
+      console.error('Error refreshing messages:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [selectedConversation, loadMessages, loadConversations, isRefreshing]);
 
   // Handle real-time message updates
   const handleNewMessage = useCallback(async (newMessage: any) => {
@@ -195,6 +223,8 @@ const MessagesPage = () => {
             onBackToList={handleBackToList}
             onStartNewConversation={() => setShowUserSearch(true)}
             onMessageSent={handleMessageSent}
+            onRefreshMessages={handleRefreshMessages}
+            isRefreshing={isRefreshing}
           />
         </div>
       </div>
