@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Code, Image, Video, FolderOpen } from 'lucide-react';
 import PostCard from '../components/PostCard';
 import CreatePostModal from '../components/CreatePostModal';
@@ -114,8 +114,8 @@ const HomePage = () => {
           console.log('Likes update:', payload);
           // The trigger will update the post counts automatically
           // We just need to refresh the specific post
-          if (payload.new?.post_id || payload.old?.post_id) {
-            const postId = payload.new?.post_id || payload.old?.post_id;
+          if ((payload.new as any)?.post_id || (payload.old as any)?.post_id) {
+            const postId = (payload.new as any)?.post_id || (payload.old as any)?.post_id;
             refreshPost(postId);
           }
         }
@@ -228,6 +228,14 @@ const HomePage = () => {
     setShowCreateModal(false);
   };
 
+  const handlePostUpdate = (updatedPost: PostWithUser) => {
+    setPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === updatedPost.id ? updatedPost : post
+      )
+    );
+  };
+
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto px-2 lg:px-0">
@@ -326,7 +334,11 @@ const HomePage = () => {
           </div>
         ) : (
           posts.map((post) => (
-            <PostCard key={post.id} post={post} />
+            <PostCard 
+              key={post.id} 
+              post={post} 
+              onPostUpdate={handlePostUpdate}
+            />
           ))
         )}
       </div>

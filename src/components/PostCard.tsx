@@ -1,27 +1,36 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Share, Bookmark, Play, ExternalLink, Github, CheckCircle, Edit } from 'lucide-react';
+import { Heart, MessageCircle, Share, Bookmark, Play, ExternalLink, Github, CheckCircle, Edit, MoreHorizontal } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import CodeEditor from './CodeEditor';
 import CodePlayground from './CodePlayground';
 import CodePostModal from './CodePostModal';
 import SharePostModal from './SharePostModal';
+import EditPostModal from './EditPostModal';
+import Comments from './Comments';
 import { executeCode } from '../utils/codeRunner';
 import { supabase, type PostWithUser } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 
-const PostCard: React.FC<{ post: PostWithUser }> = ({ post }) => {
+const PostCard: React.FC<{ post: PostWithUser; onPostUpdate?: (updatedPost: PostWithUser) => void }> = ({ 
+  post: initialPost, 
+  onPostUpdate 
+}) => {
   const { user } = useAuth();
+  const [post, setPost] = useState(initialPost);
   const [isLiked, setIsLiked] = useState(post.user_liked || false);
   const [isSaved, setIsSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showPlayground, setShowPlayground] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCodeModal, setShowCodeModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [useAdvancedEditor, setUseAdvancedEditor] = useState(false);
   const [inFeedOutput, setInFeedOutput] = useState('');
   const [inFeedIsRunning, setInFeedIsRunning] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes_count);
+  const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -40,7 +49,6 @@ const PostCard: React.FC<{ post: PostWithUser }> = ({ post }) => {
 
     try {
       if (isLiked) {
-        // Unlike the post
         const { error } = await supabase
           .from('likes')
           .delete()
@@ -52,7 +60,6 @@ const PostCard: React.FC<{ post: PostWithUser }> = ({ post }) => {
           setLikesCount((prev: number) => prev - 1);
         }
       } else {
-        // Like the post
         const { error } = await supabase
           .from('likes')
           .insert({
@@ -107,6 +114,24 @@ const PostCard: React.FC<{ post: PostWithUser }> = ({ post }) => {
     }
   };
 
+  const handleEditPost = () => {
+    setShowEditModal(true);
+    setShowOptionsMenu(false);
+  };
+
+  const handlePostUpdated = (updatedPost: PostWithUser) => {
+    setPost(updatedPost);
+    if (onPostUpdate) {
+      onPostUpdate(updatedPost);
+    }
+  };
+
+  const handleCommentsCountChange = (count: number) => {
+    setCommentsCount(count);
+  };
+
+  const isOwner = user && user.id === post.user_id;
+
   return (
     <>
       <div className="bg-gray-800 rounded-xl overflow-hidden border border-gray-700 mx-2 lg:mx-0">
@@ -126,6 +151,30 @@ const PostCard: React.FC<{ post: PostWithUser }> = ({ post }) => {
               <span className="text-sm text-gray-400">{formatTimeAgo(post.created_at)}</span>
             </div>
           </div>
+          
+          {/* Options Menu for Post Owner */}
+          {isOwner && (
+            <div className="relative">
+              <button
+                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+              
+              {showOptionsMenu && (
+                <div className="absolute top-full right-0 mt-1 w-48 bg-gray-700 border border-gray-600 rounded-lg shadow-lg z-10">
+                  <button
+                    onClick={handleEditPost}
+                    className="flex items-center w-full px-4 py-2 text-left text-white hover:bg-gray-600 transition-colors"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Post
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -343,7 +392,7 @@ const PostCard: React.FC<{ post: PostWithUser }> = ({ post }) => {
               className="flex items-center space-x-1 text-gray-400 hover:text-blue-500 transition-colors"
             >
               <MessageCircle className="w-5 h-5" />
-              <span className="text-xs lg:text-sm">{post.comments_count || 0}</span>
+              <span className="text-xs lg:text-sm">{commentsCount}</span>
             </button>
             
             <button
@@ -366,14 +415,30 @@ const PostCard: React.FC<{ post: PostWithUser }> = ({ post }) => {
         </div>
 
         {/* Comments Section */}
-        {showComments && (
-          <div className="px-4 py-3 bg-gray-700 border-t border-gray-600">
-            <div className="text-sm text-gray-400">
-              Comments feature will be implemented here...
-            </div>
-          </div>
+        <Comments
+          postId={post.id}
+          isOpen={showComments}
+          onClose={() => setShowComments(false)}
+          commentsCount={commentsCount}
+          onCommentsCountChange={handleCommentsCountChange}
+        />
+
+        {/* Click outside to close options menu */}
+        {showOptionsMenu && (
+          <div
+            className="fixed inset-0 z-0"
+            onClick={() => setShowOptionsMenu(false)}
+          />
         )}
       </div>
+
+      {/* Edit Post Modal */}
+      <EditPostModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        post={post}
+        onPostUpdated={handlePostUpdated}
+      />
 
       {/* Code Post Modal */}
       <CodePostModal

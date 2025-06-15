@@ -57,9 +57,6 @@ const ProfilePage = () => {
   const [isPostOptionsOpen, setIsPostOptionsOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [isPostLiked, setIsPostLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
-  const [isBookmarked, setIsBookmarked] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareLink, setShareLink] = useState('');
   const [isCodeCopied, setIsCodeCopied] = useState(false);
@@ -85,66 +82,6 @@ const ProfilePage = () => {
       });
     }
   }, [profile]);
-
-  useEffect(() => {
-    if (selectedPost) {
-      const fetchLikeStatus = async () => {
-        if (user) {
-          const { data: likeData, error: likeError } = await supabase
-            .from('likes')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('post_id', selectedPost.id)
-            .single();
-
-          if (likeError) {
-            console.error('Error fetching like status:', likeError);
-          } else {
-            setIsPostLiked(!!likeData);
-          }
-        }
-      };
-
-      const fetchBookmarkStatus = async () => {
-        if (user) {
-          const { data: bookmarkData, error: bookmarkError } = await supabase
-            .from('bookmarks')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('post_id', selectedPost.id)
-            .single();
-
-          if (bookmarkError) {
-            console.error('Error fetching bookmark status:', bookmarkError);
-          } else {
-            setIsBookmarked(!!bookmarkData);
-          }
-        }
-      };
-
-      fetchLikeStatus();
-      fetchBookmarkStatus();
-    }
-  }, [selectedPost, user]);
-
-  useEffect(() => {
-    const fetchLikeCount = async () => {
-      if (selectedPost) {
-        const { data: likesData, error: likesError } = await supabase
-          .from('likes')
-          .select('count', { count: 'exact' })
-          .eq('post_id', selectedPost.id);
-
-        if (likesError) {
-          console.error('Error fetching like count:', likesError);
-        } else {
-          setLikeCount(likesData ? likesData.length : 0);
-        }
-      }
-    };
-
-    fetchLikeCount();
-  }, [selectedPost, isPostLiked]);
 
   const handleFollow = async () => {
     if (!user) {
@@ -205,7 +142,6 @@ const ProfilePage = () => {
         throw updateError;
       }
 
-      // Update the profile state immediately with the new data
       setProfile({
         ...profile,
         ...updatedProfileData,
@@ -263,88 +199,6 @@ const ProfilePage = () => {
     }
   };
 
-  const handleLikePost = async () => {
-    if (!user || !selectedPost) return;
-
-    try {
-      if (isPostLiked) {
-        const { error: unlikeError } = await supabase
-          .from('likes')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('post_id', selectedPost.id);
-
-        if (unlikeError) {
-          throw unlikeError;
-        }
-        setIsPostLiked(false);
-        setLikeCount((prevCount: number) => prevCount > 0 ? prevCount - 1 : 0);
-      } else {
-        const { error: likeError } = await supabase
-          .from('likes')
-          .insert({
-            user_id: user.id,
-            post_id: selectedPost.id,
-          });
-
-        if (likeError) {
-          throw likeError;
-        }
-        setIsPostLiked(true);
-        setLikeCount((prevCount: number) => prevCount + 1);
-      }
-    } catch (err: any) {
-      console.error('Error liking/unliking post:', err);
-    }
-  };
-
-  const handleBookmarkPost = async () => {
-    if (!user || !selectedPost) return;
-
-    try {
-      if (isBookmarked) {
-        const { error: unbookmarkError } = await supabase
-          .from('bookmarks')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('post_id', selectedPost.id);
-
-        if (unbookmarkError) {
-          throw unbookmarkError;
-        }
-        setIsBookmarked(false);
-      } else {
-        const { error: bookmarkError } = await supabase
-          .from('bookmarks')
-          .insert({
-            user_id: user.id,
-            post_id: selectedPost.id,
-          });
-
-        if (bookmarkError) {
-          throw bookmarkError;
-        }
-        setIsBookmarked(true);
-      }
-    } catch (err: any) {
-      console.error('Error bookmarking/unbookmarking post:', err);
-    }
-  };
-
-  const handleShareClick = () => {
-    setIsShareModalOpen(true);
-  };
-
-  const handleCloseShareModal = () => {
-    setIsShareModalOpen(false);
-  };
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(shareLink);
-    setIsCodeCopied(true);
-    setTimeout(() => setIsCodeCopied(false), 2000);
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -366,25 +220,63 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4 dark:bg-gray-900 dark:text-white">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <button className="flex items-center text-gray-400 hover:text-white">
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Back to Feed
-        </button>
+    <div className="min-h-screen bg-gray-900 text-white">
+      {/* Mobile-optimized container with proper overflow handling */}
+      <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 overflow-hidden">
+        {/* Header - More compact on mobile */}
+        <div className="flex items-center justify-between mb-3 sm:mb-6 pt-3 sm:pt-4">
+          <button className="flex items-center text-gray-400 hover:text-white p-1 sm:p-2 -ml-1 sm:-ml-2 rounded-lg">
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
+            <span className="text-sm sm:text-base hidden sm:inline">Back to Feed</span>
+          </button>
+        </div>
+
+        {/* Profile Header - Compact mobile layout */}
+        <div className="mb-4 sm:mb-6">
+          <ProfileHeader
+            profile={profile}
+            isCurrentUser={isCurrentUser}
+            isFollowing={isFollowing}
+            followLoading={followLoading}
+            totalPosts={totalPosts}
+            onEditProfile={handleEditProfile}
+            onFollow={handleFollow}
+          />
+        </div>
+
+        {/* Content Tabs - Mobile scrollable with proper container */}
+        <div className="mb-4 sm:mb-6 w-full">
+          <ContentTabs
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            posts={posts}
+          />
+        </div>
+
+        {/* Posts Section - Responsive grid with better mobile spacing */}
+        <div className="w-full overflow-hidden">
+          <PostGrid
+            posts={posts}
+            currentPage={currentPage}
+            postsPerPage={postsPerPage}
+            sortOrder={sortOrder}
+            searchQuery={searchQuery}
+            likeCount={0}
+            isPostLiked={false}
+            isBookmarked={false}
+            activeTab={activeTab}
+            onToggleSortOrder={toggleSortOrder}
+            onPageChange={handlePageChange}
+            onSearchChange={setSearchQuery}
+            onPostOptions={togglePostOptions}
+            onLikePost={() => {}}
+            onBookmarkPost={() => {}}
+            onShareClick={() => setIsShareModalOpen(true)}
+          />
+        </div>
       </div>
 
-      <ProfileHeader
-        profile={profile}
-        isCurrentUser={isCurrentUser}
-        isFollowing={isFollowing}
-        followLoading={followLoading}
-        totalPosts={totalPosts}
-        onEditProfile={handleEditProfile}
-        onFollow={handleFollow}
-      />
-
+      {/* Modals */}
       <EditProfileModal
         isOpen={editProfile}
         profileData={profileData}
@@ -393,32 +285,6 @@ const ProfilePage = () => {
         onClose={() => setEditProfile(false)}
         onSave={handleSaveProfile}
         onInputChange={handleInputChange}
-      />
-
-      <ContentTabs
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        posts={posts}
-      />
-
-      {/* Posts Section */}
-      <PostGrid
-        posts={posts}
-        currentPage={currentPage}
-        postsPerPage={postsPerPage}
-        sortOrder={sortOrder}
-        searchQuery={searchQuery}
-        likeCount={likeCount}
-        isPostLiked={isPostLiked}
-        isBookmarked={isBookmarked}
-        activeTab={activeTab}
-        onToggleSortOrder={toggleSortOrder}
-        onPageChange={handlePageChange}
-        onSearchChange={setSearchQuery}
-        onPostOptions={togglePostOptions}
-        onLikePost={handleLikePost}
-        onBookmarkPost={handleBookmarkPost}
-        onShareClick={handleShareClick}
       />
 
       <PostOptionsDropdown
@@ -432,8 +298,12 @@ const ProfilePage = () => {
         isOpen={isShareModalOpen}
         shareLink={shareLink}
         isCodeCopied={isCodeCopied}
-        onClose={handleCloseShareModal}
-        onCopyLink={handleCopyLink}
+        onClose={() => setIsShareModalOpen(false)}
+        onCopyLink={() => {
+          navigator.clipboard.writeText(shareLink);
+          setIsCodeCopied(true);
+          setTimeout(() => setIsCodeCopied(false), 2000);
+        }}
       />
     </div>
   );
