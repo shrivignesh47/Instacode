@@ -15,6 +15,7 @@ import SettingsPage from './pages/SettingsPage';
 import MessagesPage from './pages/MessagesPage';
 import Layout from './components/Layout';
 import PostPage from './pages/PostPage';
+import TopicPage from './pages/TopicPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -108,6 +109,13 @@ function AppContent() {
         <ProtectedRoute>
           <Layout>
             <ForumsPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/topic/:id" element={
+        <ProtectedRoute>
+          <Layout>
+            <TopicPage />
           </Layout>
         </ProtectedRoute>
       } />

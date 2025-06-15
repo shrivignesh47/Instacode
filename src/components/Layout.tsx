@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { 
@@ -112,11 +113,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
         )}
 
-        {/* Mobile Left Sidebar Overlay */}
+        {/* Mobile Left Sidebar Overlay - Fixed scrolling issue */}
         {isMobileSidebarOpen && (screenSize === 'sm' || screenSize === 'md') && (
           <div className="fixed inset-0 z-50 flex">
-            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setIsMobileSidebarOpen(false)} />
-            <div className="relative w-64 bg-gray-800 h-full">
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50" 
+              onClick={() => setIsMobileSidebarOpen(false)} 
+            />
+            <div className="relative w-64 bg-gray-800 h-full overflow-y-auto">
               <Sidebar 
                 isCollapsed={false}
                 isMobile={true}
@@ -152,7 +156,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {isMobileRightSidebarOpen && !isMessagesPage && (screenSize === 'sm' || screenSize === 'md') && (
           <div className="fixed inset-0 z-50 flex justify-end">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setIsMobileRightSidebarOpen(false)} />
-            <div className="relative w-80 bg-gray-800 h-full">
+            <div className="relative w-80 bg-gray-800 h-full overflow-y-auto">
               <RightSidebar 
                 isCollapsed={isRightSidebarCollapsed}
                 onToggleCollapse={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
@@ -172,7 +176,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className={`${
             isMessagesPage 
               ? 'h-screen overflow-hidden' 
-              : 'min-h-screen p-4 lg:p-6 pb-20 lg:pb-6'
+              : 'min-h-screen p-2 sm:p-4 lg:p-6 pb-20 lg:pb-6'
           }`}>
             {children}
           </div>

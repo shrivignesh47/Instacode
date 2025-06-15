@@ -202,7 +202,7 @@ const Comments: React.FC<CommentsProps> = ({
             {comments.map((comment) => (
               <div key={comment.id} className="flex space-x-3">
                 <img
-                  src={comment.profiles.avatar_url || 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=150'}
+                  src={comment.profiles.avatar_url || 'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150'}
                   alt={comment.profiles.username}
                   className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                 />
@@ -230,7 +230,7 @@ const Comments: React.FC<CommentsProps> = ({
         <form onSubmit={handleSubmitComment} className="p-4 border-t border-gray-600">
           <div className="flex space-x-3">
             <img
-              src={user.avatar || 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=150'}
+              src={user.avatar || 'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150'}
               alt="Your avatar"
               className="w-8 h-8 rounded-full object-cover flex-shrink-0"
             />

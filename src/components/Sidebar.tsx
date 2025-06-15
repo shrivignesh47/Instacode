@@ -11,10 +11,6 @@ import {
   User, 
   Bookmark, 
   TrendingUp,
-  Code,
-  Video,
-  FileText,
-  MessageSquare,
   X,
   Settings
 } from 'lucide-react';
@@ -46,13 +42,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: User, label: 'Profile', path: `/profile/${user?.username}` },
     { icon: Bookmark, label: 'Saved', path: '/saved' },
     { icon: TrendingUp, label: 'Trending', path: '/trending' },
-  ];
-
-  const quickActions = [
-    { icon: Code, label: 'Write Code', action: 'code' },
-    { icon: Video, label: 'Record Screen', action: 'record' },
-    { icon: FileText, label: 'Share Project', action: 'project' },
-    { icon: MessageSquare, label: 'Start Discussion', action: 'discussion' },
   ];
 
   const handleLinkClick = () => {
@@ -114,25 +103,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {(!isCollapsed || isMobile) && (
         <>
-          {/* Quick Actions */}
-          <div className="px-4 py-3 border-t border-gray-700">
-            <h3 className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">Quick Actions</h3>
-            <div className="space-y-1">
-              {quickActions.map((action) => {
-                const Icon = action.icon;
-                return (
-                  <button
-                    key={action.action}
-                    className="flex items-center w-full px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors"
-                  >
-                    <Icon className="w-4 h-4 mr-3 flex-shrink-0" />
-                    <span className="truncate">{action.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Settings Link */}
           <div className="px-4 py-3 border-t border-gray-700">
             <Link

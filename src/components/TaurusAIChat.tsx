@@ -1,110 +1,172 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Bot, User, Mic, MicOff, Video, VideoOff } from 'lucide-react';
+import { X, Phone, PhoneOff, Video } from 'lucide-react';
 
 interface TaurusAIChatProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface Message {
-  id: number;
-  type: 'user' | 'ai';
-  content: string;
-  timestamp: Date;
+interface ConversationSession {
+  conversation_id: string;
+  conversation_url: string;
+  status: 'active' | 'ended' | 'connecting';
 }
 
 const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      type: 'ai',
-      content: "Hi! I'm Taurus, your AI coding assistant. I can help you with code reviews, debugging, architecture decisions, and answer any programming questions you have. How can I assist you today?",
-      timestamp: new Date(),
-    },
-  ]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isVideoCall, setIsVideoCall] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [conversationSession, setConversationSession] = useState<ConversationSession | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'failed'>('disconnected');
+  const [error, setError] = useState<string | null>(null);
+  
+  const autoEndTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Clean up resources
+  const cleanup = () => {
+    if (autoEndTimerRef.current) {
+      clearTimeout(autoEndTimerRef.current);
+      autoEndTimerRef.current = null;
+    }
+    
+    setConversationSession(null);
+    setConnectionStatus('disconnected');
+    setError(null);
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  // Start conversation with Tavus
+  const startConversation = async () => {
+    if (isConnecting || conversationSession) return;
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    setIsConnecting(true);
+    setConnectionStatus('connecting');
+    setError(null);
 
-    const userMessage: Message = {
-      id: Date.now(),
-      type: 'user',
-      content: inputMessage,
-      timestamp: new Date(),
-    };
+    try {
+      console.log('Starting Tavus conversation...');
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
-    setIsTyping(true);
+      const TAVUS_API_KEY = import.meta.env.VITE_TAVUS_API_KEY;
+      if (!TAVUS_API_KEY) {
+        throw new Error('Tavus API key not configured');
+      }
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: Date.now() + 1,
-        type: 'ai',
-        content: generateAIResponse(inputMessage),
-        timestamp: new Date(),
+      // Create conversation session with correct replica ID
+      const response = await fetch('https://tavusapi.com/v2/conversations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': TAVUS_API_KEY,
+        },
+        body: JSON.stringify({
+          replica_id: 'r9fa0878977a',
+          conversation_name: `Taurus AI Chat - ${Date.now()}`,
+          conversational_context: 'You are Taurus, an expert AI coding assistant. Help users with programming questions, code reviews, debugging, and technical advice. Keep responses conversational and engaging since this is a live video chat. Always respond to user questions and provide helpful coding assistance.',
+          properties: {
+            max_call_duration: 120, // 2 minutes
+            participant_left_timeout: 30,
+            participant_absent_timeout: 60,
+            enable_recording: false,
+            enable_closed_captions: true,
+            apply_greenscreen: false,
+            language: 'english'
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error:', errorData);
+        throw new Error(`Failed to create conversation: ${errorData.message || response.statusText}`);
+      }
+
+      const conversationData = await response.json();
+      console.log('Conversation created:', conversationData);
+
+      const session: ConversationSession = {
+        conversation_id: conversationData.conversation_id,
+        conversation_url: conversationData.conversation_url,
+        status: 'active'
       };
-      setMessages(prev => [...prev, aiResponse]);
-      setIsTyping(false);
-    }, 1500);
-  };
 
-  const generateAIResponse = (userInput: string): string => {
-    const responses = [
-      "That's a great question! Let me help you with that. Based on your code, I'd suggest implementing a more modular approach using React hooks for better state management.",
-      "I can see you're working on a challenging problem. Here's how I would approach it: First, break down the problem into smaller components, then implement each piece systematically.",
-      "Excellent! That's a solid implementation. You might want to consider adding error handling and optimizing for performance. Would you like me to show you some best practices?",
-      "I notice you're using an older pattern there. Let me suggest a more modern approach that would be more maintainable and performant.",
-      "That's a common issue many developers face. The solution involves understanding the component lifecycle better. Let me walk you through it step by step.",
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
-  };
+      setConversationSession(session);
+      setConnectionStatus('connected');
 
-  const handleVoiceRecording = () => {
-    setIsRecording(!isRecording);
-    // In a real implementation, this would start/stop voice recording
-    if (!isRecording) {
-      setTimeout(() => {
-        setIsRecording(false);
-        setInputMessage("Voice message: How can I optimize my React component performance?");
-      }, 3000);
-    }
-  };
+      // Set auto-end timer for 2 minutes
+      autoEndTimerRef.current = setTimeout(() => {
+        console.log('Auto-ending conversation after 2 minutes');
+        endConversation();
+      }, 120000); // 2 minutes
 
-  const handleVideoCall = async () => {
-    setIsVideoCall(!isVideoCall);
-    if (!isVideoCall) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+      // Check conversation status periodically
+      const statusInterval = setInterval(async () => {
+        try {
+          const statusResponse = await fetch(`https://tavusapi.com/v2/conversations/${conversationData.conversation_id}`, {
+            headers: {
+              'x-api-key': TAVUS_API_KEY,
+            }
+          });
+          
+          if (statusResponse.ok) {
+            const statusData = await statusResponse.json();
+            console.log('Conversation status:', statusData);
+            
+            if (statusData.status === 'ended') {
+              clearInterval(statusInterval);
+              cleanup();
+            }
+          }
+        } catch (error) {
+          console.error('Error checking conversation status:', error);
         }
-      } catch (error) {
-        console.error('Error accessing camera:', error);
-        setIsVideoCall(false);
-      }
-    } else {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
-      }
+      }, 10000); // Check every 10 seconds
+
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      setError(error instanceof Error ? error.message : 'Failed to start conversation');
+      setConnectionStatus('failed');
+    } finally {
+      setIsConnecting(false);
     }
+  };
+
+  // End conversation
+  const endConversation = async () => {
+    if (!conversationSession) return;
+
+    try {
+      const TAVUS_API_KEY = import.meta.env.VITE_TAVUS_API_KEY;
+      
+      // End the conversation on Tavus
+      await fetch(`https://tavusapi.com/v2/conversations/${conversationSession.conversation_id}/end`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': TAVUS_API_KEY,
+        }
+      });
+
+      console.log('Conversation ended');
+    } catch (error) {
+      console.error('Error ending conversation:', error);
+    } finally {
+      cleanup();
+    }
+  };
+
+  // Cleanup on component unmount or modal close
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, []);
+
+  // Close modal and cleanup
+  const handleClose = () => {
+    if (conversationSession) {
+      endConversation();
+    } else {
+      cleanup();
+    }
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -116,153 +178,116 @@ const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-              <Bot className="w-6 h-6 text-white" />
+              <Video className="w-6 h-6 text-white" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white">Taurus AI</h3>
-              <p className="text-sm text-green-400">Online • Ready to help</p>
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  connectionStatus === 'connected' ? 'bg-green-400' : 
+                  connectionStatus === 'connecting' ? 'bg-yellow-400' : 
+                  connectionStatus === 'failed' ? 'bg-red-400' : 'bg-gray-400'
+                }`}></div>
+                <p className="text-sm text-gray-300 capitalize">{connectionStatus}</p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleVideoCall}
-              className={`p-2 rounded-lg transition-colors ${
-                isVideoCall 
-                  ? 'bg-red-600 hover:bg-red-700 text-white' 
-                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-              }`}
-              title={isVideoCall ? 'End video call' : 'Start video call'}
-            >
-              {isVideoCall ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 text-gray-400 hover:text-white transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+          <button
+            onClick={handleClose}
+            className="p-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
-          {/* Chat Section */}
-          <div className={`flex flex-col ${isVideoCall ? 'w-1/2' : 'w-full'}`}>
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`flex items-start space-x-2 max-w-[80%] ${
-                    message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                  }`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      message.type === 'user' 
-                        ? 'bg-purple-600' 
-                        : 'bg-gradient-to-br from-purple-500 to-pink-500'
-                    }`}>
-                      {message.type === 'user' ? (
-                        <User className="w-4 h-4 text-white" />
-                      ) : (
-                        <Bot className="w-4 h-4 text-white" />
-                      )}
-                    </div>
-                    <div className={`rounded-lg p-3 ${
-                      message.type === 'user'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-700 text-gray-100'
-                    }`}>
-                      <p className="text-sm">{message.content}</p>
-                      <p className="text-xs opacity-70 mt-1">
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+        {/* Video Area */}
+        <div className="flex-1 bg-gray-900 relative overflow-hidden">
+          {!conversationSession ? (
+            /* Welcome Screen */
+            <div className="h-full flex flex-col items-center justify-center text-center p-8">
+              <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-6">
+                <Video className="w-12 h-12 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-4">
+                Start a Live Conversation with Taurus AI
+              </h2>
+              <p className="text-gray-300 mb-8 max-w-md">
+                Experience real-time AI conversation with video and voice. 
+                Ask coding questions, get help with debugging, or discuss architecture decisions.
+                Session will automatically end after 2 minutes.
+              </p>
               
-              {isTyping && (
-                <div className="flex justify-start">
-                  <div className="flex items-start space-x-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                      <Bot className="w-4 h-4 text-white" />
+              {error && (
+                <div className="bg-red-900 border border-red-600 rounded-lg p-4 mb-6 max-w-md">
+                  <p className="text-red-200 text-sm">{error}</p>
+                </div>
+              )}
+              
+              <button
+                onClick={startConversation}
+                disabled={isConnecting}
+                className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white rounded-xl font-semibold transition-all transform hover:scale-105 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {isConnecting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Connecting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Phone className="w-5 h-5" />
+                    <span>Start 2-Minute Chat</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            /* Active Conversation */
+            <div className="h-full">
+              <iframe
+                ref={iframeRef}
+                src={conversationSession.conversation_url}
+                className="w-full h-full border-0"
+                allow="camera; microphone; display-capture; autoplay"
+                title="Taurus AI Conversation"
+              />
+              
+              {connectionStatus !== 'connected' && (
+                <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4 mx-auto">
+                      <Video className="w-8 h-8 text-white" />
                     </div>
-                    <div className="bg-gray-700 rounded-lg p-3">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></div>
-                      </div>
-                    </div>
+                    <p className="text-white">
+                      {connectionStatus === 'connecting' ? 'Connecting to Taurus...' : 'Connection failed'}
+                    </p>
                   </div>
                 </div>
               )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input */}
-            <div className="p-4 border-t border-gray-700">
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleVoiceRecording}
-                  className={`p-2 rounded-lg transition-colors ${
-                    isRecording 
-                      ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse' 
-                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                  }`}
-                  title={isRecording ? 'Stop recording' : 'Start voice recording'}
-                >
-                  {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                </button>
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Ask Taurus anything about coding..."
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!inputMessage.trim()}
-                  className="p-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Video Call Section */}
-          {isVideoCall && (
-            <div className="w-1/2 border-l border-gray-700 flex flex-col">
-              <div className="flex-1 bg-gray-900 relative">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  muted
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
-                  You
-                </div>
-                
-                {/* AI Avatar */}
-                <div className="absolute bottom-4 right-4 w-32 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                  <Bot className="w-8 h-8 text-white" />
-                </div>
-              </div>
-              
-              <div className="p-4 bg-gray-800 text-center">
-                <p className="text-sm text-gray-300 mb-2">Video call with Taurus AI</p>
-                <p className="text-xs text-gray-500">AI video responses coming soon!</p>
-              </div>
             </div>
           )}
         </div>
+
+        {/* Controls */}
+        {conversationSession && (
+          <div className="p-4 bg-gray-800 border-t border-gray-700">
+            <div className="flex items-center justify-center space-x-4">
+              <button
+                onClick={endConversation}
+                className="p-3 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors"
+                title="End conversation"
+              >
+                <PhoneOff className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="text-center mt-3">
+              <p className="text-xs text-gray-400">
+                Ask me any coding questions - I'm here to help! (Auto-ends in 2 minutes)
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

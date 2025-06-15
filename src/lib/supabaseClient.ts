@@ -258,6 +258,131 @@ export interface Database {
           created_at?: string;
         };
       };
+      forums: {
+        Row: {
+          id: string;
+          name: string;
+          description: string;
+          category: string;
+          color: string;
+          members_count: number;
+          topics_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description: string;
+          category: string;
+          color?: string;
+          members_count?: number;
+          topics_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string;
+          category?: string;
+          color?: string;
+          members_count?: number;
+          topics_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      forum_members: {
+        Row: {
+          id: string;
+          forum_id: string;
+          user_id: string;
+          joined_at: string;
+        };
+        Insert: {
+          id?: string;
+          forum_id: string;
+          user_id: string;
+          joined_at?: string;
+        };
+        Update: {
+          id?: string;
+          forum_id?: string;
+          user_id?: string;
+          joined_at?: string;
+        };
+      };
+      forum_topics: {
+        Row: {
+          id: string;
+          forum_id: string;
+          user_id: string;
+          title: string;
+          content: string;
+          tags: string[];
+          is_pinned: boolean;
+          replies_count: number;
+          views_count: number;
+          last_activity: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          forum_id: string;
+          user_id: string;
+          title: string;
+          content: string;
+          tags?: string[];
+          is_pinned?: boolean;
+          replies_count?: number;
+          views_count?: number;
+          last_activity?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          forum_id?: string;
+          user_id?: string;
+          title?: string;
+          content?: string;
+          tags?: string[];
+          is_pinned?: boolean;
+          replies_count?: number;
+          views_count?: number;
+          last_activity?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      forum_replies: {
+        Row: {
+          id: string;
+          topic_id: string;
+          user_id: string;
+          content: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          topic_id: string;
+          user_id: string;
+          content: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          topic_id?: string;
+          user_id?: string;
+          content?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
   };
 }
@@ -270,4 +395,25 @@ export type PostWithUser = Database['public']['Tables']['posts']['Row'] & {
 
 export type CommentWithUser = Database['public']['Tables']['comments']['Row'] & {
   profiles: Database['public']['Tables']['profiles']['Row'];
+};
+
+// Forum helper types
+export type ForumWithMembership = Database['public']['Tables']['forums']['Row'] & {
+  is_member?: boolean;
+};
+
+export type ForumTopicWithUser = Database['public']['Tables']['forum_topics']['Row'] & {
+  profiles: Database['public']['Tables']['profiles']['Row'];
+};
+
+export type ForumReplyWithUser = Database['public']['Tables']['forum_replies']['Row'] & {
+  profiles: Database['public']['Tables']['profiles']['Row'];
+};
+
+// Add SQL function for incrementing topic replies
+export const createIncrementTopicRepliesFunction = async () => {
+  const { error } = await supabase.rpc('create_increment_topic_replies_function');
+  if (error) {
+    console.log('Function may already exist:', error.message);
+  }
 };
