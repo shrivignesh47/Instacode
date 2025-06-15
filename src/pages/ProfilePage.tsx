@@ -49,7 +49,8 @@ const ProfilePage = () => {
     website: '',
     github_url: '',
     linkedin_url: '',
-    twitter_url: ''
+    twitter_url: '',
+    avatar_url: ''
   });
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -81,7 +82,8 @@ const ProfilePage = () => {
         website: profile.website || '',
         github_url: profile.github_url || '',
         linkedin_url: profile.linkedin_url || '',
-        twitter_url: profile.twitter_url || ''
+        twitter_url: profile.twitter_url || '',
+        avatar_url: profile.avatar_url || ''
       });
     }
   }, [profile]);
@@ -191,23 +193,24 @@ const ProfilePage = () => {
     setEditProfile(true);
   };
 
-  const handleSaveProfile = async () => {
+  const handleSaveProfile = async (updatedProfileData: any) => {
     setIsSaving(true);
     setSaveError(null);
 
     try {
       const { error: updateError } = await supabase
         .from('profiles')
-        .update(profileData)
+        .update(updatedProfileData)
         .eq('id', user?.id);
 
       if (updateError) {
         throw updateError;
       }
 
+      // Update the profile state immediately with the new data
       setProfile({
         ...profile,
-        ...profileData,
+        ...updatedProfileData,
       });
       setEditProfile(false);
     } catch (err: any) {

@@ -61,19 +61,23 @@ export const useProfile = (username: string | undefined) => {
         setPosts(postsData || []);
         setTotalPosts(count || 0);
 
-        if (user) {
+        // Only check follow status if user is logged in and viewing someone else's profile
+        if (user && user.id !== profileData.id) {
           const { data: followingData, error: followingError } = await supabase
             .from('followers')
             .select('*')
             .eq('follower_id', user.id)
             .eq('followed_id', profileData.id)
-            .single();
+            .maybeSingle();
 
           if (followingError) {
             console.error('Error fetching follow status:', followingError);
+            setIsFollowing(false);
           } else {
             setIsFollowing(!!followingData);
           }
+        } else {
+          setIsFollowing(false);
         }
       } catch (err: any) {
         setError(err.message || 'Failed to fetch profile');
@@ -83,7 +87,7 @@ export const useProfile = (username: string | undefined) => {
     };
 
     fetchProfile();
-  }, [username, user, isFollowing, sortOrder, currentPage]);
+  }, [username, user, sortOrder, currentPage]);
 
   return {
     profile,
