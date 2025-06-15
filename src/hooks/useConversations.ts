@@ -1,0 +1,106 @@
+
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../contexts/AuthContext';
+
+export interface Conversation {
+  id: string;
+  participant_1: string;
+  participant_2: string;
+  last_message_at: string;
+  other_user: {
+    id: string;
+    username: string;
+    avatar_url: string;
+    bio: string;
+  };
+  last_message?: {
+    content: string;
+    message_type: string;
+    sender_id: string;
+  };
+  unread_count: number;
+}
+
+export const useConversations = () => {
+  const { user } = useAuth();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadConversations = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select(`
+          id,
+          participant_1,
+          participant_2,
+          last_message_at,
+          last_message_id,
+          profiles!conversations_participant_1_fkey(id, username, avatar_url, bio),
+          profiles_participant_2:profiles!conversations_participant_2_fkey(id, username, avatar_url, bio)
+        `)
+        .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`)
+        .order('last_message_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading conversations:', error);
+        return;
+      }
+
+      const formattedConversations: Conversation[] = [];
+
+      for (const conv of data) {
+        const otherUser = conv.participant_1 === user.id 
+          ? conv.profiles_participant_2 
+          : conv.profiles;
+        
+        const otherUserObj = Array.isArray(otherUser) ? otherUser[0] : otherUser;
+        if (!otherUserObj) continue;
+
+        // Get last message if exists
+        let lastMessage = undefined;
+        if (conv.last_message_id) {
+          const { data: messageData } = await supabase
+            .from('messages')
+            .select('content, message_type, sender_id')
+            .eq('id', conv.last_message_id)
+            .single();
+          
+          if (messageData) {
+            lastMessage = messageData;
+          }
+        }
+
+        formattedConversations.push({
+          id: conv.id,
+          participant_1: conv.participant_1,
+          participant_2: conv.participant_2,
+          last_message_at: conv.last_message_at || new Date().toISOString(),
+          other_user: {
+            id: otherUserObj.id,
+            username: otherUserObj.username,
+            avatar_url: otherUserObj.avatar_url || '',
+            bio: otherUserObj.bio || ''
+          },
+          last_message: lastMessage,
+          unread_count: 0
+        });
+      }
+
+      setConversations(formattedConversations);
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  return { conversations, loading, loadConversations };
+};
