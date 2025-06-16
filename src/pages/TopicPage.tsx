@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Users, Calendar, Tag, Send, Reply } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Users, Calendar, Tag, Send, Reply, UserPlus } from 'lucide-react';
 import { supabase, ForumTopicWithUser } from '../lib/supabaseClient';
 import { useForumReplies } from '../hooks/useForumReplies';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,6 +15,8 @@ const TopicPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMemberOfForum, setIsMemberOfForum] = useState<boolean>(false);
+  const [forumName, setForumName] = useState<string>('');
   
   const { replies, loading: repliesLoading, createReply } = useForumReplies(id);
 
@@ -43,6 +45,28 @@ const TopicPage = () => {
 
         setTopic(data);
 
+        // Get forum details and check membership
+        if (user && data.forum_id) {
+          const { data: forumData } = await supabase
+            .from('forums')
+            .select('name')
+            .eq('id', data.forum_id)
+            .single();
+
+          if (forumData) {
+            setForumName(forumData.name);
+          }
+
+          const { data: membership } = await supabase
+            .from('forum_members')
+            .select('id')
+            .eq('forum_id', data.forum_id)
+            .eq('user_id', user.id)
+            .single();
+
+          setIsMemberOfForum(!!membership);
+        }
+
         // Increment view count
         await supabase
           .from('forum_topics')
@@ -58,7 +82,7 @@ const TopicPage = () => {
     };
 
     fetchTopic();
-  }, [id]);
+  }, [id, user]);
 
   const handleSubmitReply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +106,12 @@ const TopicPage = () => {
       alert('Failed to create reply. Please try again.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleJoinForum = () => {
+    if (topic?.forum_id) {
+      navigate(`/forum/${topic.forum_id}`);
     }
   };
 
@@ -238,41 +268,58 @@ const TopicPage = () => {
 
       {/* Answer Form */}
       {user ? (
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Your Answer</h3>
-          <form onSubmit={handleSubmitReply} className="space-y-4">
-            <textarea
-              value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
-              placeholder="Write your answer here... Be detailed and provide examples if possible."
-              rows={6}
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-vertical"
-              required
-            />
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-400">
-                <strong>Tips:</strong> Provide clear explanations, include code examples, and be respectful.
-              </p>
-              <button
-                type="submit"
-                disabled={!replyContent.trim() || isSubmitting}
-                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Posting Answer...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Post Your Answer
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
+        isMemberOfForum ? (
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Your Answer</h3>
+            <form onSubmit={handleSubmitReply} className="space-y-4">
+              <textarea
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                placeholder="Write your answer here... Be detailed and provide examples if possible."
+                rows={6}
+                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-vertical"
+                required
+              />
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-400">
+                  <strong>Tips:</strong> Provide clear explanations, include code examples, and be respectful.
+                </p>
+                <button
+                  type="submit"
+                  disabled={!replyContent.trim() || isSubmitting}
+                  className="px-6 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Posting Answer...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Post Your Answer
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-6 text-center">
+            <UserPlus className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-white mb-2">Join {forumName} to Reply</h3>
+            <p className="text-yellow-200 mb-4">
+              You must be a member of this forum to post answers and participate in discussions.
+            </p>
+            <button
+              onClick={handleJoinForum}
+              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors inline-flex items-center gap-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              Join Forum to Reply
+            </button>
+          </div>
+        )
       ) : (
         <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 text-center">
           <p className="text-gray-400 mb-4">You must be logged in to answer this question.</p>

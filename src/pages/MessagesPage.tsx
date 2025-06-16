@@ -1,9 +1,9 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import Layout from '../components/Layout';
 import ConversationList from '../components/ConversationList';
 import ChatArea from '../components/ChatArea';
 import UserSearchModal from '../components/UserSearchModal';
+import ForumQuickAccess from '../components/ForumQuickAccess';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { useConversations, type Conversation } from '../hooks/useConversations';
@@ -46,7 +46,6 @@ const MessagesPage = () => {
 
     return () => clearInterval(autoRefreshInterval);
   }, [selectedConversation, handleRefreshMessages]);
-
 
   // Handle real-time message updates
   const handleNewMessage = useCallback(async (newMessage: any) => {
@@ -207,13 +206,16 @@ const MessagesPage = () => {
       <div className="h-full bg-gray-900 flex overflow-hidden">
         {/* Conversation List - Full width on mobile, fixed width on desktop */}
         <div className={`${showChatList ? 'flex w-full' : 'hidden'} lg:flex lg:w-80 xl:w-96`}>
-          <ConversationList
-            conversations={conversations}
-            selectedConversation={selectedConversation}
-            onConversationSelect={handleConversationSelect}
-            onStartNewConversation={() => setShowUserSearch(true)}
-            loading={loading}
-          />
+          <div className="flex flex-col w-full">
+            <ForumQuickAccess />
+            <ConversationList
+              conversations={conversations}
+              selectedConversation={selectedConversation}
+              onConversationSelect={handleConversationSelect}
+              onStartNewConversation={() => setShowUserSearch(true)}
+              loading={loading}
+            />
+          </div>
         </div>
 
         {/* Chat Area - Full width on mobile when shown, flexible on desktop */}

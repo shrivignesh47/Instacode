@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -8,6 +9,7 @@ import ExplorePage from './pages/ExplorePage';
 import ProfilePage from './pages/ProfilePage';
 import CreatePage from './pages/CreatePage';
 import ForumsPage from './pages/ForumsPage';
+import ForumDetailPage from './pages/ForumDetailPage';
 import CommunitiesPage from './pages/CommunitiesPage';
 import SavedPage from './pages/SavedPage';
 import TrendingPage from './pages/TrendingPage';
@@ -109,6 +111,13 @@ function AppContent() {
         <ProtectedRoute>
           <Layout>
             <ForumsPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/forum/:id" element={
+        <ProtectedRoute>
+          <Layout>
+            <ForumDetailPage />
           </Layout>
         </ProtectedRoute>
       } />

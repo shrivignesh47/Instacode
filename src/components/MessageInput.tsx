@@ -1,10 +1,11 @@
 
 import { useState } from 'react';
-import { Send, Paperclip, Smile, RefreshCw } from 'lucide-react';
+import { Send, Paperclip, Smile, RefreshCw, Users } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Conversation } from '../hooks/useConversations';
 import { Message } from '../hooks/useMessages';
+import { useForums } from '../hooks/useForums';
 
 interface MessageInputProps {
   selectedConversation: Conversation;
@@ -20,8 +21,33 @@ const MessageInput = ({
   isRefreshing = false 
 }: MessageInputProps) => {
   const { user } = useAuth();
+  const { forums, joinForum } = useForums();
   const [messageInput, setMessageInput] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [showForumSuggestions, setShowForumSuggestions] = useState(false);
+
+  // Check if message mentions a forum
+  const checkForumMentions = (text: string) => {
+    const forumMentions = forums.filter(forum => 
+      text.toLowerCase().includes(forum.name.toLowerCase()) && !forum.is_member
+    );
+    setShowForumSuggestions(forumMentions.length > 0);
+    return forumMentions;
+  };
+
+  const handleInputChange = (value: string) => {
+    setMessageInput(value);
+    checkForumMentions(value);
+  };
+
+  const handleJoinForum = async (forumId: string) => {
+    try {
+      await joinForum(forumId);
+      setShowForumSuggestions(false);
+    } catch (error) {
+      console.error('Failed to join forum:', error);
+    }
+  };
 
   const sendMessage = async () => {
     if (!messageInput.trim() || !selectedConversation || !user) return;
@@ -29,6 +55,7 @@ const MessageInput = ({
     const messageContent = messageInput.trim();
     setSendingMessage(true);
     setMessageInput(''); // Clear input immediately for better UX
+    setShowForumSuggestions(false);
 
     try {
       console.log('Sending message:', messageContent);
@@ -89,8 +116,36 @@ const MessageInput = ({
     }
   };
 
+  const mentionedForums = messageInput ? checkForumMentions(messageInput) : [];
+
   return (
     <div className="p-4 lg:p-6 bg-gray-800 border-t border-gray-700 flex-shrink-0 pb-6 lg:pb-6">
+      {/* Forum Join Suggestions */}
+      {showForumSuggestions && mentionedForums.length > 0 && (
+        <div className="mb-4 p-3 bg-purple-900/20 border border-purple-700 rounded-lg">
+          <div className="flex items-center space-x-2 mb-2">
+            <Users className="w-4 h-4 text-purple-400" />
+            <span className="text-sm text-purple-200 font-medium">Join related forums</span>
+          </div>
+          <div className="space-y-2">
+            {mentionedForums.slice(0, 2).map((forum) => (
+              <div key={forum.id} className="flex items-center justify-between bg-gray-700 rounded-md p-2">
+                <div>
+                  <div className="text-sm text-white font-medium">{forum.name}</div>
+                  <div className="text-xs text-gray-400">{forum.members_count} members</div>
+                </div>
+                <button
+                  onClick={() => handleJoinForum(forum.id)}
+                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-md transition-colors"
+                >
+                  Join
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center space-x-3">
         <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors flex-shrink-0">
           <Paperclip className="w-5 h-5" />
@@ -100,7 +155,7 @@ const MessageInput = ({
           <input
             type="text"
             value={messageInput}
-            onChange={(e) => setMessageInput(e.target.value)}
+            onChange={(e) => handleInputChange(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
             placeholder="Type a message..."
             className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
