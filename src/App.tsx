@@ -1,5 +1,4 @@
 
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './pages/LoginPage';
@@ -8,21 +7,17 @@ import HomePage from './pages/HomePage';
 import ExplorePage from './pages/ExplorePage';
 import ProfilePage from './pages/ProfilePage';
 import CreatePage from './pages/CreatePage';
+import CodePlaygroundPage from './pages/CodePlaygroundPage';
 import ForumsPage from './pages/ForumsPage';
-import ForumDetailPage from './pages/ForumDetailPage';
 import CommunitiesPage from './pages/CommunitiesPage';
 import SavedPage from './pages/SavedPage';
 import TrendingPage from './pages/TrendingPage';
 import SettingsPage from './pages/SettingsPage';
 import MessagesPage from './pages/MessagesPage';
 import Layout from './components/Layout';
-import PostPage from './pages/PostPage';
-import TopicPage from './pages/TopicPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
-  
-  console.log('ProtectedRoute: loading:', loading, 'isAuthenticated:', isAuthenticated);
   
   if (loading) {
     return (
@@ -41,8 +36,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
   
-  console.log('PublicRoute: loading:', loading, 'isAuthenticated:', isAuthenticated);
-  
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -59,8 +52,6 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function AppContent() {
   const { loading } = useAuth();
-
-  console.log('AppContent: loading:', loading);
 
   if (loading) {
     return (
@@ -107,24 +98,15 @@ function AppContent() {
           </Layout>
         </ProtectedRoute>
       } />
+      <Route path="/playground" element={
+        <ProtectedRoute>
+          <CodePlaygroundPage />
+        </ProtectedRoute>
+      } />
       <Route path="/forums" element={
         <ProtectedRoute>
           <Layout>
             <ForumsPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      <Route path="/forum/:id" element={
-        <ProtectedRoute>
-          <Layout>
-            <ForumDetailPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      <Route path="/topic/:id" element={
-        <ProtectedRoute>
-          <Layout>
-            <TopicPage />
           </Layout>
         </ProtectedRoute>
       } />
@@ -165,13 +147,6 @@ function AppContent() {
         <ProtectedRoute>
           <Layout>
             <ProfilePage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      <Route path="/post/:id" element={
-        <ProtectedRoute>
-          <Layout>
-            <PostPage />
           </Layout>
         </ProtectedRoute>
       } />

@@ -69,7 +69,7 @@ const CodePlayground: React.FC<CodePlaygroundProps> = ({
             >
               {supportedLanguages.map((lang) => (
                 <option key={lang.value} value={lang.value}>
-                  {lang.icon} {lang.label}
+                  {lang.label}
                 </option>
               ))}
             </select>

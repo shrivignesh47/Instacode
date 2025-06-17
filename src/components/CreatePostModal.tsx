@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Code, Image, Video, FolderOpen, Upload, Link, Play } from 'lucide-react';
+import { X, Code, Image, Video, FolderOpen } from 'lucide-react';
 import CodeEditor from './CodeEditor';
 import FileUpload from './FileUpload';
 import { getSupportedLanguages } from '../utils/codeRunner';
@@ -11,27 +11,35 @@ interface CreatePostModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPostCreated?: () => void;
-  initialType: 'code' | 'image' | 'video' | 'project';
+  initialType?: 'code' | 'image' | 'video' | 'project';
+  initialVideo?: Blob;
+  initialCode?: string;
+  initialLanguage?: string;
 }
 
 const CreatePostModal: React.FC<CreatePostModalProps> = ({ 
   isOpen, 
   onClose, 
   onPostCreated,
-  initialType 
+  initialType = 'code',
+  initialVideo,
+  initialCode = '',
+  initialLanguage = 'javascript'
 }) => {
   const { user } = useAuth();
   const [postType, setPostType] = useState(initialType);
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
-  const [codeContent, setCodeContent] = useState('');
-  const [codeLanguage, setCodeLanguage] = useState('javascript');
+  const [codeContent, setCodeContent] = useState(initialCode);
+  const [codeLanguage, setCodeLanguage] = useState(initialLanguage);
   const [projectTitle, setProjectTitle] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [projectLiveUrl, setProjectLiveUrl] = useState('');
   const [projectGithubUrl, setProjectGithubUrl] = useState('');
   const [projectTechStack, setProjectTechStack] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(
+    initialVideo ? new File([initialVideo], 'recording.webm', { type: 'video/webm' }) : null
+  );
   const [projectImage, setProjectImage] = useState<File | null>(null);
   const [useAdvancedEditor, setUseAdvancedEditor] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -172,6 +180,13 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         }
       } else if (postType === 'image' || postType === 'video') {
         postData.media_url = mediaUrl;
+        
+        // Special handling for coding videos from playground
+        if (postType === 'video' && codeContent) {
+          postData.code_content = codeContent;
+          postData.code_language = codeLanguage;
+          postData.type = 'coding_video'; // Special type for coding tutorial videos
+        }
       }
 
       // Insert the post
@@ -384,11 +399,11 @@ print("Doubled numbers:", doubled)`,
           </div>
 
           {/* Code-specific fields */}
-          {postType === 'code' && (
+          {(postType === 'code' || (postType === 'video' && codeContent)) && (
             <>
               <div className="flex items-center justify-between">
                 <label htmlFor="codeLanguage" className="block text-sm font-medium text-gray-300">
-                  Programming Language *
+                  Programming Language {postType === 'code' ? '*' : '(Optional)'}
                 </label>
                 <button
                   type="button"
@@ -408,14 +423,14 @@ print("Doubled numbers:", doubled)`,
               >
                 {supportedLanguages.map((lang) => (
                   <option key={lang.value} value={lang.value}>
-                    {lang.icon} {lang.label}
+                    {lang.label}
                   </option>
                 ))}
               </select>
               
               <div>
                 <label htmlFor="codeContent" className="block text-sm font-medium text-gray-300 mb-2">
-                  Code *
+                  Code {postType === 'code' ? '*' : '(Optional)'}
                 </label>
                 {useAdvancedEditor ? (
                   <CodeEditor
@@ -433,7 +448,7 @@ print("Doubled numbers:", doubled)`,
                     placeholder="Paste your code here..."
                     className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm resize-none"
                     rows={12}
-                    required
+                    required={postType === 'code'}
                   />
                 )}
               </div>

@@ -1,690 +1,320 @@
-// Comprehensive multi-language code execution utilities
-export const runJavaScript = async (jsCode: string): Promise<string> => {
-  return new Promise((resolve) => {
-    const originalConsoleLog = console.log;
-    const originalConsoleError = console.error;
-    const originalConsoleWarn = console.warn;
-    
-    let output = '';
-    
-    // Override console methods to capture output
-    console.log = (...args) => {
-      output += args.map(arg => 
-        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-      ).join(' ') + '\n';
-    };
-    
-    console.error = (...args) => {
-      output += 'ERROR: ' + args.map(arg => String(arg)).join(' ') + '\n';
-    };
-    
-    console.warn = (...args) => {
-      output += 'WARNING: ' + args.map(arg => String(arg)).join(' ') + '\n';
-    };
 
-    try {
-      // Create a safe execution environment
-      const safeCode = `
-        (function() {
-          ${jsCode}
-        })();
-      `;
-      
-      // Execute the code
-      eval(safeCode);
-      
-      if (!output) {
-        output = 'Code executed successfully (no output)';
-      }
-    } catch (error) {
-      output += `Runtime Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
-    } finally {
-      // Restore original console methods
-      console.log = originalConsoleLog;
-      console.error = originalConsoleError;
-      console.warn = originalConsoleWarn;
-      
-      resolve(output);
+const API_BASE_URL = 'https://emkc.org/api/v2/piston/execute';
+
+export const executeCode = async (code: string, language: string, input?: string): Promise<string> => {
+  try {
+    console.log('Sending code execution request:', { language, hasCode: !!code, hasInput: !!input });
+    
+    // Try Piston API v2 first
+    const pistonResult = await tryPistonExecution(code, language, input);
+    if (pistonResult) return pistonResult;
+    
+    // Fallback to mock execution for now
+    return await mockExecution(code, language);
+    
+  } catch (error: any) {
+    console.error('Code execution error:', error);
+    
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      return 'Network error: Unable to connect to the code execution service. Please check your internet connection.';
     }
-  });
+    
+    return `Execution failed: ${error.message || 'Unknown error'}`;
+  }
 };
 
-export const runTypeScript = async (tsCode: string): Promise<string> => {
-  // For now, treat TypeScript similar to JavaScript (in a real implementation, you'd transpile first)
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        // Basic TypeScript simulation
-        const output = `TypeScript code compiled successfully!\n\nNote: This is a simulation. In production, TypeScript would be transpiled to JavaScript first.\n\nCode preview:\n${tsCode.substring(0, 200)}${tsCode.length > 200 ? '...' : ''}`;
-        resolve(output);
-      } catch (error) {
-        resolve(`TypeScript Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }, 800);
-  });
-};
+const tryPistonExecution = async (code: string, language: string, input?: string): Promise<string | null> => {
+  try {
+    const requestBody = {
+      language: getLanguageMapping(language),
+      version: getLanguageVersion(language),
+      files: [
+        {
+          name: `main${getFileExtension(language)}`,
+          content: code
+        }
+      ],
+      stdin: input || '',
+      compile_timeout: 10000,
+      run_timeout: 3000
+    };
 
-export const runPython = async (pythonCode: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        let output = '';
-        
-        // Enhanced Python simulation
-        if (pythonCode.includes('print(')) {
-          const lines = pythonCode.split('\n');
-          for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (trimmedLine.startsWith('print(')) {
-              const match = trimmedLine.match(/print\((.*?)\)/);
-              if (match) {
-                let content = match[1];
-                // Handle string literals
-                if ((content.startsWith('"') && content.endsWith('"')) || 
-                    (content.startsWith("'") && content.endsWith("'"))) {
-                  content = content.slice(1, -1);
-                }
-                // Handle f-strings (basic)
-                if (content.startsWith('f"') || content.startsWith("f'")) {
-                  content = content.substring(2, content.length - 1);
-                }
-                output += content + '\n';
-              }
-            }
-          }
-        }
-        
-        // Handle basic variable assignments and math
-        if (pythonCode.includes('=') && !output) {
-          output = 'Python code executed successfully. Variables assigned and operations completed.\n';
-        }
-        
-        if (!output) {
-          output = 'Python code executed successfully (no print statements found)';
-        }
-        
-        resolve(output);
-      } catch (error) {
-        resolve(`Python Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }, 1000);
-  });
-};
+    console.log('Piston API request:', requestBody);
+    
+    const response = await fetch(API_BASE_URL, {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-export const runJava = async (javaCode: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        let output = '';
-        
-        // Check for main method
-        if (javaCode.includes('public static void main')) {
-          output += 'Java application started...\n\n';
-          
-          // Extract variables and their values
-          const variables = new Map<string, any>();
-          
-          // Parse variable declarations and assignments
-          const lines = javaCode.split('\n');
-          for (const line of lines) {
-            const trimmedLine = line.trim();
-            
-            // Handle int declarations
-            const intMatch = trimmedLine.match(/int\s+(\w+)\s*=\s*([^;]+);/);
-            if (intMatch) {
-              const varName = intMatch[1];
-              const value = parseInt(intMatch[2].trim());
-              variables.set(varName, value);
-            }
-            
-            // Handle boolean declarations
-            const boolMatch = trimmedLine.match(/boolean\s+(\w+)\s*=\s*([^;]+);/);
-            if (boolMatch) {
-              const varName = boolMatch[1];
-              const value = boolMatch[2].trim() === 'true';
-              variables.set(varName, value);
-            }
-            
-            // Handle variable assignments
-            const assignMatch = trimmedLine.match(/(\w+)\s*=\s*([^;]+);/);
-            if (assignMatch && !trimmedLine.includes('int ') && !trimmedLine.includes('boolean ')) {
-              const varName = assignMatch[1];
-              const valueStr = assignMatch[2].trim();
-              
-              if (valueStr === 'true' || valueStr === 'false') {
-                variables.set(varName, valueStr === 'true');
-              } else if (!isNaN(parseInt(valueStr))) {
-                variables.set(varName, parseInt(valueStr));
-              }
-            }
-          }
-          
-          // Process System.out.println statements with variable substitution
-          const printMatches = javaCode.match(/System\.out\.println\([^)]+\);/g);
-          if (printMatches) {
-            printMatches.forEach(match => {
-              let content = match.replace(/System\.out\.println\(|\);/g, '').trim();
-              
-              // Handle string concatenation with variables
-              if (content.includes('+')) {
-                const parts = content.split('+').map(part => part.trim());
-                let result = '';
-                
-                for (const part of parts) {
-                  if (part.startsWith('"') && part.endsWith('"')) {
-                    // String literal
-                    result += part.slice(1, -1);
-                  } else if (variables.has(part)) {
-                    // Variable
-                    result += variables.get(part);
-                  } else {
-                    // Fallback
-                    result += part;
-                  }
-                }
-                output += result + '\n';
-              } else {
-                // Simple case - just a variable or string
-                if (content.startsWith('"') && content.endsWith('"')) {
-                  output += content.slice(1, -1) + '\n';
-                } else if (variables.has(content)) {
-                  output += variables.get(content) + '\n';
-                } else {
-                  output += content + '\n';
-                }
-              }
-            });
-          }
-          
-          // Process conditional logic for prime number example
-          if (javaCode.includes('if (!flag)') && javaCode.includes('is a prime number')) {
-            const num = variables.get('num') || 29;
-            const flag = variables.get('flag') || false;
-            
-            // Simulate the prime number logic
-            let isPrime = true;
-            if (num === 0 || num === 1) {
-              isPrime = false;
-            } else {
-              for (let i = 2; i <= Math.floor(num / 2); i++) {
-                if (num % i === 0) {
-                  isPrime = false;
-                  break;
-                }
-              }
-            }
-            
-            if (isPrime) {
-              output += `${num} is a prime number.\n`;
-            } else {
-              output += `${num} is not a prime number.\n`;
-            }
-          }
-          
-          output += '\nJava application completed successfully.';
-        } else {
-          output = 'Java code compiled successfully. Note: No main method found for execution.';
-        }
-        
-        resolve(output);
-      } catch (error) {
-        resolve(`Java Compilation Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }, 1200);
-  });
-};
+    console.log('Piston response status:', response.status);
 
-export const runCpp = async (cppCode: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        let output = '';
-        
-        // Check for main function
-        if (cppCode.includes('int main') || cppCode.includes('void main')) {
-          output += 'C++ program started...\n';
-          
-          // Look for cout statements
-          const coutMatches = cppCode.match(/cout\s*<<\s*(.*?)\s*;/g);
-          if (coutMatches) {
-            coutMatches.forEach(match => {
-              const content = match.replace(/cout\s*<<\s*|\s*;/g, '');
-              let cleanContent = content.trim();
-              
-              // Handle string literals and endl
-              cleanContent = cleanContent.replace(/"/g, '').replace(/endl/g, '\n').replace(/\\n/g, '\n');
-              
-              output += cleanContent;
-            });
-          }
-          
-          output += '\n\nC++ program completed successfully.';
-        } else {
-          output = 'C++ code compiled successfully. Note: No main function found for execution.';
-        }
-        
-        resolve(output);
-      } catch (error) {
-        resolve(`C++ Compilation Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }, 1100);
-  });
-};
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Piston API Error:', errorText);
+      return null; // Trigger fallback
+    }
 
-export const runCSharp = async (csharpCode: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        let output = '';
-        
-        // Check for Main method
-        if (csharpCode.includes('static void Main') || csharpCode.includes('static async Task Main')) {
-          output += 'C# application started...\n';
-          
-          // Look for Console.WriteLine statements
-          const consoleMatches = csharpCode.match(/Console\.WriteLine\((.*?)\);/g);
-          if (consoleMatches) {
-            consoleMatches.forEach(match => {
-              const content = match.replace(/Console\.WriteLine\(|\);/g, '');
-              let cleanContent = content.trim();
-              
-              // Handle string literals
-              if ((cleanContent.startsWith('"') && cleanContent.endsWith('"')) || 
-                  (cleanContent.startsWith("'") && cleanContent.endsWith("'"))) {
-                cleanContent = cleanContent.slice(1, -1);
-              }
-              
-              output += cleanContent + '\n';
-            });
-          }
-          
-          output += '\nC# application completed successfully.';
-        } else {
-          output = 'C# code compiled successfully. Note: No Main method found for execution.';
-        }
-        
-        resolve(output);
-      } catch (error) {
-        resolve(`C# Compilation Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }, 1000);
-  });
-};
+    const data = await response.json();
+    console.log('Piston API Response:', data);
 
-export const runGo = async (goCode: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        let output = '';
-        
-        // Check for main function
-        if (goCode.includes('func main()')) {
-          output += 'Go program started...\n';
-          
-          // Look for fmt.Println statements
-          const printMatches = goCode.match(/fmt\.Println\((.*?)\)/g);
-          if (printMatches) {
-            printMatches.forEach(match => {
-              const content = match.replace(/fmt\.Println\(|\)/g, '');
-              let cleanContent = content.trim();
-              
-              // Handle string literals
-              if ((cleanContent.startsWith('"') && cleanContent.endsWith('"')) || 
-                  (cleanContent.startsWith('`') && cleanContent.endsWith('`'))) {
-                cleanContent = cleanContent.slice(1, -1);
-              }
-              
-              output += cleanContent + '\n';
-            });
-          }
-          
-          output += '\nGo program completed successfully.';
-        } else {
-          output = 'Go code compiled successfully. Note: No main function found for execution.';
-        }
-        
-        resolve(output);
-      } catch (error) {
-        resolve(`Go Compilation Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }, 900);
-  });
-};
-
-export const runRust = async (rustCode: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        let output = '';
-        
-        // Check for main function
-        if (rustCode.includes('fn main()')) {
-          output += 'Rust program started...\n';
-          
-          // Look for println! macro calls
-          const printMatches = rustCode.match(/println!\((.*?)\);/g);
-          if (printMatches) {
-            printMatches.forEach(match => {
-              const content = match.replace(/println!\(|\);/g, '');
-              let cleanContent = content.trim();
-              
-              // Handle string literals
-              if ((cleanContent.startsWith('"') && cleanContent.endsWith('"'))) {
-                cleanContent = cleanContent.slice(1, -1);
-              }
-              
-              output += cleanContent + '\n';
-            });
-          }
-          
-          output += '\nRust program completed successfully.';
-        } else {
-          output = 'Rust code compiled successfully. Note: No main function found for execution.';
-        }
-        
-        resolve(output);
-      } catch (error) {
-        resolve(`Rust Compilation Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }, 1300);
-  });
-};
-
-export const runPHP = async (phpCode: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        let output = '';
-        
-        // Look for echo statements
-        const echoMatches = phpCode.match(/echo\s+(.*?);/g);
-        if (echoMatches) {
-          echoMatches.forEach(match => {
-            const content = match.replace(/echo\s+|;/g, '');
-            let cleanContent = content.trim();
-            
-            // Handle string literals
-            if ((cleanContent.startsWith('"') && cleanContent.endsWith('"')) || 
-                (cleanContent.startsWith("'") && cleanContent.endsWith("'"))) {
-              cleanContent = cleanContent.slice(1, -1);
-            }
-            
-            output += cleanContent + '\n';
-          });
-        }
-        
-        // Look for print statements
-        const printMatches = phpCode.match(/print\s+(.*?);/g);
-        if (printMatches) {
-          printMatches.forEach(match => {
-            const content = match.replace(/print\s+|;/g, '');
-            let cleanContent = content.trim();
-            
-            // Handle string literals
-            if ((cleanContent.startsWith('"') && cleanContent.endsWith('"')) || 
-                (cleanContent.startsWith("'") && cleanContent.endsWith("'"))) {
-              cleanContent = cleanContent.slice(1, -1);
-            }
-            
-            output += cleanContent + '\n';
-          });
-        }
-        
-        if (!output) {
-          output = 'PHP code executed successfully (no output statements found)';
-        }
-        
-        resolve(output);
-      } catch (error) {
-        resolve(`PHP Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }, 800);
-  });
-};
-
-export const runRuby = async (rubyCode: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        let output = '';
-        
-        // Look for puts statements
-        const putsMatches = rubyCode.match(/puts\s+(.*)/g);
-        if (putsMatches) {
-          putsMatches.forEach(match => {
-            const content = match.replace(/puts\s+/, '');
-            let cleanContent = content.trim();
-            
-            // Handle string literals
-            if ((cleanContent.startsWith('"') && cleanContent.endsWith('"')) || 
-                (cleanContent.startsWith("'") && cleanContent.endsWith("'"))) {
-              cleanContent = cleanContent.slice(1, -1);
-            }
-            
-            output += cleanContent + '\n';
-          });
-        }
-        
-        // Look for print statements
-        const printMatches = rubyCode.match(/print\s+(.*)/g);
-        if (printMatches) {
-          printMatches.forEach(match => {
-            const content = match.replace(/print\s+/, '');
-            let cleanContent = content.trim();
-            
-            // Handle string literals
-            if ((cleanContent.startsWith('"') && cleanContent.endsWith('"')) || 
-                (cleanContent.startsWith("'") && cleanContent.endsWith("'"))) {
-              cleanContent = cleanContent.slice(1, -1);
-            }
-            
-            output += cleanContent;
-          });
-        }
-        
-        if (!output) {
-          output = 'Ruby code executed successfully (no output statements found)';
-        }
-        
-        resolve(output);
-      } catch (error) {
-        resolve(`Ruby Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }, 700);
-  });
-};
-
-export const runSQL = async (sqlCode: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        let output = '';
-        const upperCode = sqlCode.toUpperCase();
-        
-        if (upperCode.includes('SELECT')) {
-          output += 'SQL Query executed successfully!\n\n';
-          output += 'Sample Result:\n';
-          output += '┌─────────┬──────────────┬─────────┐\n';
-          output += '│ ID      │ Name         │ Status  │\n';
-          output += '├─────────┼──────────────┼─────────┤\n';
-          output += '│ 1       │ John Doe     │ Active  │\n';
-          output += '│ 2       │ Jane Smith   │ Active  │\n';
-          output += '│ 3       │ Bob Johnson  │ Inactive│\n';
-          output += '└─────────┴──────────────┴─────────┘\n';
-          output += '\n3 rows returned.';
-        } else if (upperCode.includes('INSERT')) {
-          output += 'INSERT statement executed successfully!\n1 row(s) affected.';
-        } else if (upperCode.includes('UPDATE')) {
-          output += 'UPDATE statement executed successfully!\nRows affected: 2';
-        } else if (upperCode.includes('DELETE')) {
-          output += 'DELETE statement executed successfully!\nRows affected: 1';
-        } else if (upperCode.includes('CREATE TABLE')) {
-          output += 'Table created successfully!';
-        } else if (upperCode.includes('DROP TABLE')) {
-          output += 'Table dropped successfully!';
-        } else {
-          output = 'SQL statement executed successfully!';
-        }
-        
-        resolve(output);
-      } catch (error) {
-        resolve(`SQL Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }, 600);
-  });
-};
-
-export const runHTML = async (htmlCode: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const output = 'HTML code compiled successfully! Check the preview to see the rendered output.';
-      resolve(output);
-    }, 300);
-  });
-};
-
-export const runCSS = async (cssCode: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      let output = 'CSS code compiled successfully!\n\n';
+    if (data && data.run) {
+      let output = '';
       
-      // Analyze CSS for feedback
-      const selectors = cssCode.match(/[^{}]+(?=\s*\{)/g);
-      if (selectors) {
-        output += `Found ${selectors.length} CSS rule(s):\n`;
-        selectors.slice(0, 5).forEach((selector, index) => {
-          output += `${index + 1}. ${selector.trim()}\n`;
-        });
-        if (selectors.length > 5) {
-          output += `... and ${selectors.length - 5} more\n`;
-        }
+      // Check for compilation errors first
+      if (data.compile && data.compile.stderr) {
+        output += `Compilation Error:\n${data.compile.stderr}\n\n`;
       }
       
-      resolve(output);
-    }, 400);
-  });
+      // Add stdout if available
+      if (data.run.stdout) {
+        output += data.run.stdout;
+      }
+      
+      // Add stderr if available
+      if (data.run.stderr) {
+        if (output) output += '\n';
+        output += `Error:\n${data.run.stderr}`;
+      }
+      
+      // If no output but successful execution, provide feedback
+      if (!output && data.run.code === 0) {
+        output = 'Program executed successfully with no output.';
+      }
+      
+      // If there was an execution error
+      if (!output && data.run.code !== 0) {
+        output = `Program exited with code ${data.run.code}. No output generated.`;
+      }
+      
+      return output || 'No output received from the execution.';
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Piston execution failed:', error);
+    return null;
+  }
 };
 
-// Main execution function that routes to appropriate language runner
-export const executeCode = async (code: string, language: string): Promise<string> => {
-  const lang = language.toLowerCase();
+const mockExecution = async (code: string, language: string): Promise<string> => {
+  // Simulate execution delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
   
-  switch (lang) {
-    case 'javascript':
-    case 'js':
-      return runJavaScript(code);
-    
-    case 'typescript':
-    case 'ts':
-      return runTypeScript(code);
-    
-    case 'python':
-    case 'py':
-      return runPython(code);
-    
-    case 'java':
-      return runJava(code);
-    
-    case 'cpp':
-    case 'c++':
-    case 'cxx':
-      return runCpp(code);
-    
-    case 'csharp':
-    case 'c#':
-    case 'cs':
-      return runCSharp(code);
-    
-    case 'go':
-    case 'golang':
-      return runGo(code);
-    
-    case 'rust':
-    case 'rs':
-      return runRust(code);
-    
-    case 'php':
-      return runPHP(code);
-    
-    case 'ruby':
-    case 'rb':
-      return runRuby(code);
-    
-    case 'sql':
-    case 'mysql':
-    case 'postgresql':
-    case 'sqlite':
-      return runSQL(code);
-    
-    case 'html':
-      return runHTML(code);
-    
-    case 'css':
-      return runCSS(code);
-    
-    default:
-      return Promise.resolve(`Execution for ${language} is not yet supported. Supported languages: JavaScript, TypeScript, Python, Java, C++, C#, Go, Rust, PHP, Ruby, SQL, HTML, CSS`);
+  const mockResults: Record<string, string> = {
+    'javascript': `> node main.js\nHello, World!\n[Simulated execution - API unavailable]`,
+    'python': `> python main.py\nHello, World!\n[Simulated execution - API unavailable]`,
+    'java': `> javac Main.java && java Main\nHello, World!\n[Simulated execution - API unavailable]`,
+    'cpp': `> g++ -o main main.cpp && ./main\nHello, World!\n[Simulated execution - API unavailable]`,
+    'c': `> gcc -o main main.c && ./main\nHello, World!\n[Simulated execution - API unavailable]`
+  };
+  
+  const defaultMock = `> Executing ${language} code...\nCode execution simulation\n[Simulated execution - API unavailable]`;
+  
+  if (code.includes('console.log') || code.includes('print') || code.includes('System.out') || code.includes('cout') || code.includes('printf')) {
+    return mockResults[language] || defaultMock;
   }
+  
+  return `Code compiled and executed successfully.\n[Simulated execution - API unavailable]`;
 };
 
-export const getFileExtension = (lang: string): string => {
-  switch (lang.toLowerCase()) {
-    case 'javascript':
-    case 'js':
-      return 'js';
-    case 'typescript':
-    case 'ts':
-      return 'ts';
-    case 'python':
-    case 'py':
-      return 'py';
-    case 'java':
-      return 'java';
-    case 'cpp':
-    case 'c++':
-    case 'cxx':
-      return 'cpp';
-    case 'csharp':
-    case 'c#':
-    case 'cs':
-      return 'cs';
-    case 'go':
-    case 'golang':
-      return 'go';
-    case 'rust':
-    case 'rs':
-      return 'rs';
-    case 'php':
-      return 'php';
-    case 'ruby':
-    case 'rb':
-      return 'rb';
-    case 'html':
-      return 'html';
-    case 'css':
-      return 'css';
-    case 'sql':
-    case 'mysql':
-    case 'postgresql':
-    case 'sqlite':
-      return 'sql';
-    default:
-      return 'txt';
-  }
+const getLanguageMapping = (language: string): string => {
+  const mappings: Record<string, string> = {
+    'javascript': 'javascript',
+    'python': 'python',
+    'java': 'java',
+    'cpp': 'cpp',
+    'c': 'c',
+    'csharp': 'csharp',
+    'go': 'go',
+    'rust': 'rust',
+    'php': 'php',
+    'ruby': 'ruby',
+    'typescript': 'typescript',
+    'kotlin': 'kotlin',
+    'swift': 'swift',
+    'scala': 'scala',
+    'perl': 'perl',
+    'lua': 'lua',
+    'bash': 'bash',
+    'sql': 'sqlite3',
+    'dart': 'dart',
+    'elixir': 'elixir',
+    'haskell': 'haskell',
+    'r': 'r'
+  };
+  
+  return mappings[language] || language;
 };
 
-export const getSupportedLanguages = () => [
-  { value: 'javascript', label: 'JavaScript', icon: '🟨' },
-  { value: 'typescript', label: 'TypeScript', icon: '🔷' },
-  { value: 'python', label: 'Python', icon: '🐍' },
-  { value: 'java', label: 'Java', icon: '☕' },
-  { value: 'cpp', label: 'C++', icon: '⚡' },
-  { value: 'csharp', label: 'C#', icon: '🔷' },
-  { value: 'go', label: 'Go', icon: '🐹' },
-  { value: 'rust', label: 'Rust', icon: '🦀' },
-  { value: 'php', label: 'PHP', icon: '🐘' },
-  { value: 'ruby', label: 'Ruby', icon: '💎' },
-  { value: 'sql', label: 'SQL', icon: '🗃️' },
-  { value: 'html', label: 'HTML', icon: '🌐' },
-  { value: 'css', label: 'CSS', icon: '🎨' },
-];
+const getLanguageVersion = (language: string): string => {
+  const versions: Record<string, string> = {
+    'javascript': '18.15.0',
+    'python': '3.10.0',
+    'java': '15.0.2',
+    'cpp': '10.2.0',
+    'c': '10.2.0',
+    'csharp': '6.12.0',
+    'go': '1.16.2',
+    'rust': '1.68.2',
+    'php': '8.2.3',
+    'ruby': '3.0.1',
+    'typescript': '5.0.3',
+    'kotlin': '1.8.20',
+    'swift': '5.3.3',
+    'scala': '3.2.2',
+    'perl': '5.36.0',
+    'lua': '5.4.4',
+    'bash': '5.2.0',
+    'sql': '3.36.0',
+    'dart': '2.19.6',
+    'elixir': '1.12.3',
+    'haskell': '9.0.1',
+    'r': '4.1.1'
+  };
+  
+  return versions[language] || '*';
+};
+
+export const getSupportedLanguages = () => {
+  return [
+    { value: 'javascript', label: 'JavaScript' },
+    { value: 'typescript', label: 'TypeScript' },
+    { value: 'python', label: 'Python' },
+    { value: 'java', label: 'Java' },
+    { value: 'cpp', label: 'C++' },
+    { value: 'c', label: 'C' },
+    { value: 'csharp', label: 'C#' },
+    { value: 'go', label: 'Go' },
+    { value: 'rust', label: 'Rust' },
+    { value: 'php', label: 'PHP' },
+    { value: 'ruby', label: 'Ruby' },
+    { value: 'kotlin', label: 'Kotlin' },
+    { value: 'swift', label: 'Swift' },
+    { value: 'scala', label: 'Scala' },
+    { value: 'perl', label: 'Perl' },
+    { value: 'lua', label: 'Lua' },
+    { value: 'bash', label: 'Bash' },
+    { value: 'sql', label: 'SQL' },
+    { value: 'dart', label: 'Dart' },
+    { value: 'elixir', label: 'Elixir' },
+    { value: 'haskell', label: 'Haskell' },
+    { value: 'r', label: 'R' }
+  ];
+};
+
+export const getFileExtension = (language: string): string => {
+  const extensions: Record<string, string> = {
+    'javascript': '.js',
+    'typescript': '.ts',
+    'python': '.py',
+    'java': '.java',
+    'cpp': '.cpp',
+    'c': '.c',
+    'csharp': '.cs',
+    'go': '.go',
+    'rust': '.rs',
+    'php': '.php',
+    'ruby': '.rb',
+    'kotlin': '.kt',
+    'swift': '.swift',
+    'scala': '.scala',
+    'perl': '.pl',
+    'lua': '.lua',
+    'bash': '.sh',
+    'sql': '.sql',
+    'dart': '.dart',
+    'elixir': '.ex',
+    'haskell': '.hs',
+    'r': '.r'
+  };
+  
+  return extensions[language] || '.txt';
+};
+
+export const getLanguageTemplate = (language: string): string => {
+  const templates: Record<string, string> = {
+    'javascript': `// Welcome to the JavaScript playground!
+function greetUser(name) {
+  return \`Hello, \${name}! Welcome to InstaCode.\`;
+}
+
+// Example usage
+console.log(greetUser("Developer"));
+
+// Try some array operations
+const numbers = [1, 2, 3, 4, 5];
+const doubled = numbers.map(n => n * 2);
+console.log("Doubled numbers:", doubled);`,
+    
+    'python': `# Welcome to the Python playground!
+def greet_user(name):
+    return f"Hello, {name}! Welcome to InstaCode."
+
+# Example usage
+print(greet_user("Developer"))
+
+# Try some list operations
+numbers = [1, 2, 3, 4, 5]
+doubled = [n * 2 for n in numbers]
+print("Doubled numbers:", doubled)`,
+    
+    'java': `// Welcome to the Java playground!
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, Developer! Welcome to InstaCode.");
+        
+        // Example array operations
+        int[] numbers = {1, 2, 3, 4, 5};
+        System.out.print("Doubled numbers: ");
+        for (int num : numbers) {
+            System.out.print((num * 2) + " ");
+        }
+        System.out.println();
+    }
+}`,
+    
+    'cpp': `// Welcome to the C++ playground!
+#include <iostream>
+#include <vector>
+
+int main() {
+    std::cout << "Hello, Developer! Welcome to InstaCode." << std::endl;
+    
+    // Example vector operations
+    std::vector<int> numbers = {1, 2, 3, 4, 5};
+    std::cout << "Doubled numbers: ";
+    for (int num : numbers) {
+        std::cout << (num * 2) << " ";
+    }
+    std::cout << std::endl;
+    
+    return 0;
+}`,
+
+    'go': `// Welcome to the Go playground!
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello, World!")
+    
+    // Slice operations
+    numbers := []int{1, 2, 3, 4, 5}
+    var doubled []int
+    
+    for _, num := range numbers {
+        doubled = append(doubled, num*2)
+    }
+    
+    fmt.Printf("Original: %v\\n", numbers)
+    fmt.Printf("Doubled: %v\\n", doubled)
+}`
+  };
+  
+  return templates[language] || `// Write your ${language} code here...\nconsole.log("Hello, World!");`;
+};
