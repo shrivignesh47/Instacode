@@ -26,18 +26,18 @@ const ChatArea = ({
 }: ChatAreaProps) => {
   if (!selectedConversation) {
     return (
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
         <div className="text-center max-w-md">
-          <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
-            <MessageCircle className="w-10 h-10 text-gray-400" />
+          <div className="w-16 lg:w-20 h-16 lg:h-20 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 lg:mb-6">
+            <MessageCircle className="w-8 lg:w-10 h-8 lg:h-10 text-gray-400" />
           </div>
-          <h3 className="text-2xl font-semibold text-white mb-3">Your messages</h3>
-          <p className="text-gray-400 mb-6">
+          <h3 className="text-xl lg:text-2xl font-semibold text-white mb-2 lg:mb-3">Your messages</h3>
+          <p className="text-gray-400 mb-4 lg:mb-6 text-sm lg:text-base">
             Send a message to start a conversation with other developers.
           </p>
           <button 
             onClick={onStartNewConversation}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-colors"
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 lg:px-6 py-2 lg:py-3 rounded-xl font-medium transition-colors text-sm lg:text-base"
           >
             Start a conversation
           </button>
@@ -49,7 +49,7 @@ const ChatArea = ({
   return (
     <div className="flex-1 flex flex-col bg-gray-900 min-w-0 h-full">
       {/* Chat Header */}
-      <div className="p-3 sm:p-4 lg:p-6 bg-gray-800 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
+      <div className="relative z-10 p-3 sm:p-4 lg:p-6 bg-gray-800 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center space-x-3 min-w-0 flex-1">
           <button
             onClick={onBackToList}
@@ -88,16 +88,19 @@ const ChatArea = ({
         </div>
       </div>
 
-      {/* Messages */}
-      <MessageList messages={messages} />
-
-      {/* Message Input */}
-      <MessageInput 
-        selectedConversation={selectedConversation}
-        onMessageSent={onMessageSent}
-        onRefreshMessages={onRefreshMessages}
-        isRefreshing={isRefreshing}
-      />
+      {/* Messages Container */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <MessageList 
+          messages={messages} 
+          isRefreshing={isRefreshing}
+        />
+        <MessageInput 
+          selectedConversation={selectedConversation}
+          onMessageSent={onMessageSent}
+          onRefreshMessages={onRefreshMessages}
+          isRefreshing={isRefreshing}
+        />
+      </div>
     </div>
   );
 };

@@ -26,7 +26,6 @@ const MessageInput = ({
   const [sendingMessage, setSendingMessage] = useState(false);
   const [showForumSuggestions, setShowForumSuggestions] = useState(false);
 
-  // Check if message mentions a forum
   const checkForumMentions = (text: string) => {
     const forumMentions = forums.filter(forum => 
       text.toLowerCase().includes(forum.name.toLowerCase()) && !forum.is_member
@@ -54,7 +53,7 @@ const MessageInput = ({
 
     const messageContent = messageInput.trim();
     setSendingMessage(true);
-    setMessageInput(''); // Clear input immediately for better UX
+    setMessageInput('');
     setShowForumSuggestions(false);
 
     try {
@@ -83,13 +82,12 @@ const MessageInput = ({
 
       if (error) {
         console.error('Error sending message:', error);
-        setMessageInput(messageContent); // Restore input on error
+        setMessageInput(messageContent);
         return;
       }
 
       console.log('Message sent successfully:', data);
       
-      // Add the message immediately to the UI for instant feedback
       const newMessage: Message = {
         id: data.id,
         conversation_id: data.conversation_id,
@@ -110,7 +108,7 @@ const MessageInput = ({
       
     } catch (error) {
       console.error('Error sending message:', error);
-      setMessageInput(messageContent); // Restore input on error
+      setMessageInput(messageContent);
     } finally {
       setSendingMessage(false);
     }
@@ -119,10 +117,10 @@ const MessageInput = ({
   const mentionedForums = messageInput ? checkForumMentions(messageInput) : [];
 
   return (
-    <div className="p-4 lg:p-6 bg-gray-800 border-t border-gray-700 flex-shrink-0 pb-6 lg:pb-6">
+    <div className="p-3 lg:p-6 bg-gray-800 border-t border-gray-700 flex-shrink-0">
       {/* Forum Join Suggestions */}
       {showForumSuggestions && mentionedForums.length > 0 && (
-        <div className="mb-4 p-3 bg-purple-900/20 border border-purple-700 rounded-lg">
+        <div className="mb-3 lg:mb-4 p-3 bg-purple-900/20 border border-purple-700 rounded-lg">
           <div className="flex items-center space-x-2 mb-2">
             <Users className="w-4 h-4 text-purple-400" />
             <span className="text-sm text-purple-200 font-medium">Join related forums</span>
@@ -146,9 +144,9 @@ const MessageInput = ({
         </div>
       )}
 
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2 lg:space-x-3">
         <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors flex-shrink-0">
-          <Paperclip className="w-5 h-5" />
+          <Paperclip className="w-4 h-4 lg:w-5 lg:h-5" />
         </button>
         
         <div className="flex-1 relative">
@@ -158,13 +156,13 @@ const MessageInput = ({
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
             placeholder="Type a message..."
-            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+            className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-gray-700 border border-gray-600 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm lg:text-base"
             disabled={sendingMessage}
           />
         </div>
         
         <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors flex-shrink-0">
-          <Smile className="w-5 h-5" />
+          <Smile className="w-4 h-4 lg:w-5 lg:h-5" />
         </button>
 
         {onRefreshMessages && (
@@ -174,19 +172,19 @@ const MessageInput = ({
             className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors flex-shrink-0 disabled:opacity-50"
             title="Refresh messages"
           >
-            <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 lg:w-5 lg:h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
         )}
         
         <button
           onClick={sendMessage}
           disabled={!messageInput.trim() || sendingMessage}
-          className="p-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-full transition-colors flex-shrink-0"
+          className="p-2 lg:p-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-full transition-colors flex-shrink-0"
         >
           {sendingMessage ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-4 h-4 lg:w-5 lg:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
           ) : (
-            <Send className="w-5 h-5" />
+            <Send className="w-4 h-4 lg:w-5 lg:h-5" />
           )}
         </button>
       </div>

@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import Layout from '../components/Layout';
 import ConversationList from '../components/ConversationList';
@@ -28,7 +29,7 @@ const MessagesPage = () => {
     try {
       console.log('Manually refreshing messages for conversation:', selectedConversation.id);
       await loadMessages(selectedConversation.id);
-      await loadConversations(); // Also refresh conversations to update last message
+      await loadConversations();
     } catch (error) {
       console.error('Error refreshing messages:', error);
     } finally {
@@ -36,22 +37,23 @@ const MessagesPage = () => {
     }
   }, [selectedConversation, loadMessages, loadConversations, isRefreshing]);
 
-  // Auto-refresh messages every 2 seconds
+  // Reduced auto-refresh frequency to prevent constant refreshing
   useEffect(() => {
     if (!selectedConversation) return;
 
     const autoRefreshInterval = setInterval(() => {
-      handleRefreshMessages();
-    }, 2000); // Refresh every 2 seconds
+      if (!isRefreshing) {
+        handleRefreshMessages();
+      }
+    }, 5000); // Increased to 5 seconds to reduce frequency
 
     return () => clearInterval(autoRefreshInterval);
-  }, [selectedConversation, handleRefreshMessages]);
+  }, [selectedConversation, handleRefreshMessages, isRefreshing]);
 
   // Handle real-time message updates
   const handleNewMessage = useCallback(async (newMessage: any) => {
     console.log('Processing new message:', newMessage);
     
-    // Check if this message belongs to any of the user's conversations
     const userConversations = conversations.filter(conv => 
       conv.participant_1 === user?.id || conv.participant_2 === user?.id
     );
@@ -65,9 +67,7 @@ const MessagesPage = () => {
       return;
     }
     
-    // If the message is for the current conversation, add it to messages
     if (selectedConversation && newMessage.conversation_id === selectedConversation.id) {
-      // Fetch the complete message with sender info
       const { data: messageData, error } = await supabase
         .from('messages')
         .select(`
@@ -107,7 +107,6 @@ const MessagesPage = () => {
       }
     }
     
-    // Always reload conversations to update last message
     await loadConversations();
   }, [conversations, selectedConversation, user, addMessage, loadConversations]);
 
@@ -119,7 +118,6 @@ const MessagesPage = () => {
     }
   }, [selectedConversation, updateMessage]);
 
-  // Set up real-time subscriptions
   useRealTimeMessages({
     onNewMessage: handleNewMessage,
     onMessageUpdate: handleMessageUpdate,
@@ -145,7 +143,6 @@ const MessagesPage = () => {
     if (!userToStart) return;
 
     try {
-      // Get or create conversation
       const { data: conversationId, error } = await supabase
         .rpc('get_or_create_conversation', {
           user1_id: user.id,
@@ -157,7 +154,6 @@ const MessagesPage = () => {
         return;
       }
 
-      // Find the conversation in our list or create a new one
       let conversation = conversations.find(c => c.id === conversationId);
       
       if (!conversation) {
@@ -204,9 +200,9 @@ const MessagesPage = () => {
   return (
     <Layout>
       <div className="h-full bg-gray-900 flex overflow-hidden">
-        {/* Conversation List - Full width on mobile, fixed width on desktop */}
-        <div className={`${showChatList ? 'flex w-full' : 'hidden'} lg:flex lg:w-80 xl:w-96`}>
-          <div className="flex flex-col w-full">
+        {/* Conversation List */}
+        <div className={`${showChatList ? 'flex w-full' : 'hidden'} lg:flex lg:w-80 xl:w-96 flex-shrink-0`}>
+          <div className="flex flex-col w-full h-full">
             <ForumQuickAccess />
             <ConversationList
               conversations={conversations}
@@ -218,8 +214,8 @@ const MessagesPage = () => {
           </div>
         </div>
 
-        {/* Chat Area - Full width on mobile when shown, flexible on desktop */}
-        <div className={`${!showChatList ? 'flex w-full' : 'hidden'} lg:flex lg:flex-1`}>
+        {/* Chat Area */}
+        <div className={`${!showChatList ? 'flex w-full' : 'hidden'} lg:flex lg:flex-1 min-w-0`}>
           <ChatArea
             selectedConversation={selectedConversation}
             messages={messages}
@@ -232,7 +228,6 @@ const MessagesPage = () => {
         </div>
       </div>
 
-      {/* User Search Modal */}
       <UserSearchModal
         isOpen={showUserSearch}
         onClose={() => setShowUserSearch(false)}

@@ -1,7 +1,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, CheckCheck, Code, Image, Video, ExternalLink } from 'lucide-react';
+import { Check, CheckCheck, Code, Image, Video, ExternalLink, RefreshCw } from 'lucide-react';
 import { Message } from '../hooks/useMessages';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, PostWithUser } from '../lib/supabaseClient';
@@ -10,39 +10,55 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface MessageListProps {
   messages: Message[];
+  isRefreshing?: boolean;
 }
 
-const MessageList = ({ messages }: MessageListProps) => {
+const MessageList = ({ messages, isRefreshing = false }: MessageListProps) => {
   const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [sharedPosts, setSharedPosts] = useState<{ [key: string]: PostWithUser }>({});
   const lastConversationIdRef = useRef<string | null>(null);
+  const [userScrolledUp, setUserScrolledUp] = useState(false);
+
+  // Handle scroll detection
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+      setUserScrolledUp(!isAtBottom);
+    }
+  };
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
 
   useEffect(() => {
     const newConversationId = messages.length > 0 ? messages[0].conversation_id : null;
 
     const scrollToBottom = (behavior: 'auto' | 'smooth' = 'auto') => {
-      // Use timeout to ensure DOM is updated before scrolling
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior });
-      }, 0);
+      }, 100);
     };
 
     if (newConversationId && newConversationId !== lastConversationIdRef.current) {
-        // New conversation, scroll to bottom immediately.
-        scrollToBottom('auto');
-        lastConversationIdRef.current = newConversationId;
-    } else {
-        // Same conversation, only scroll if user is at the bottom.
-        const container = scrollContainerRef.current;
-        if (container && (container.scrollHeight - container.scrollTop - container.clientHeight < 200)) {
-            scrollToBottom('smooth');
-        }
+      // New conversation, scroll to bottom immediately and reset scroll state
+      scrollToBottom('auto');
+      setUserScrolledUp(false);
+      lastConversationIdRef.current = newConversationId;
+    } else if (!userScrolledUp) {
+      // Same conversation and user hasn't scrolled up, scroll smoothly
+      scrollToBottom('smooth');
     }
-  }, [messages]);
+  }, [messages, userScrolledUp]);
 
-  // Fetch shared posts for messages that have shared_post_id
+  // Fetch shared posts
   useEffect(() => {
     const fetchSharedPosts = async () => {
       const postShareMessages = messages.filter(
@@ -188,23 +204,19 @@ const MessageList = ({ messages }: MessageListProps) => {
     return (
       <div
         key={message.id}
-        className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-4`}
+        className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-3 lg:mb-4 px-2 lg:px-0`}
       >
-        <div className={`max-w-xs lg:max-w-md ${isOwnMessage ? 'order-2' : 'order-1'}`}>
-          {/* Message Content */}
-          <div className={`px-4 py-3 rounded-2xl ${
+        <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md ${isOwnMessage ? 'order-2' : 'order-1'}`}>
+          <div className={`px-3 lg:px-4 py-2 lg:py-3 rounded-2xl ${
             isOwnMessage
               ? 'bg-purple-600 text-white rounded-br-md'
               : 'bg-gray-700 text-gray-100 rounded-bl-md'
           }`}>
             <p className="text-sm break-words">{message.content}</p>
-            
-            {/* Render shared post if it exists */}
             {sharedPost && renderSharedPost(sharedPost)}
           </div>
           
-          {/* Message Info */}
-          <div className={`flex items-center mt-1 space-x-1 ${
+          <div className={`flex items-center mt-1 space-x-1 px-1 ${
             isOwnMessage ? 'justify-end' : 'justify-start'
           }`}>
             <span className="text-xs text-gray-500">{formatTime(message.created_at)}</span>
@@ -224,45 +236,58 @@ const MessageList = ({ messages }: MessageListProps) => {
   };
 
   return (
-    <div
-      ref={scrollContainerRef}
-      className="flex-1 overflow-y-auto p-4 lg:p-6"
-      style={{
-        scrollbarWidth: 'thin',
-        scrollbarColor: '#374151 #1f2937'
-      }}
-    >
-      <style>
-        {`
-          .flex-1::-webkit-scrollbar {
-            width: 6px;
-          }
-          .flex-1::-webkit-scrollbar-track {
-            background: #1f2937;
-          }
-          .flex-1::-webkit-scrollbar-thumb {
-            background: #374151;
-            border-radius: 3px;
-          }
-          .flex-1::-webkit-scrollbar-thumb:hover {
-            background: #4b5563;
-          }
-        `}
-      </style>
-      {messages.length === 0 ? (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <div className="w-16 h-16 text-gray-600 mx-auto mb-4">💬</div>
-            <h3 className="text-xl font-semibold text-white mb-2">Start the conversation</h3>
-            <p className="text-gray-400">Send a message to get started</p>
-          </div>
+    <div className="flex-1 flex flex-col min-h-0 relative">
+      {/* Refreshing indicator */}
+      {isRefreshing && (
+        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 bg-gray-800 border border-gray-600 rounded-full px-3 py-1 flex items-center space-x-2">
+          <RefreshCw className="w-3 h-3 text-purple-400 animate-spin" />
+          <span className="text-xs text-gray-300">Refreshing...</span>
         </div>
-      ) : (
-        <>
-          {messages.map(renderMessage)}
-          <div ref={messagesEndRef} />
-        </>
       )}
+
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto py-2 lg:py-4"
+        style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#374151 #1f2937'
+        }}
+      >
+        <style>
+          {`
+            .flex-1::-webkit-scrollbar {
+              width: 6px;
+            }
+            .flex-1::-webkit-scrollbar-track {
+              background: #1f2937;
+            }
+            .flex-1::-webkit-scrollbar-thumb {
+              background: #374151;
+              border-radius: 3px;
+            }
+            .flex-1::-webkit-scrollbar-thumb:hover {
+              background: #4b5563;
+            }
+          `}
+        </style>
+        
+        {messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full px-4">
+            <div className="text-center">
+              <div className="w-12 h-12 lg:w-16 lg:h-16 text-gray-600 mx-auto mb-3 lg:mb-4 text-2xl lg:text-4xl">💬</div>
+              <h3 className="text-lg lg:text-xl font-semibold text-white mb-2">Start the conversation</h3>
+              <p className="text-gray-400 text-sm lg:text-base">Send a message to get started</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="px-2 lg:px-6">
+              {messages.map(renderMessage)}
+            </div>
+            <div ref={messagesEndRef} />
+          </>
+        )}
+      </div>
     </div>
   );
 };
