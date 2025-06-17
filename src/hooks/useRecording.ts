@@ -1,4 +1,3 @@
-
 import { useState, useRef, useCallback } from 'react';
 
 interface UseRecordingReturn {
@@ -12,9 +11,11 @@ interface UseRecordingReturn {
   toggleScreen: () => void;
   toggleVoice: () => void;
   toggleCamera: () => void;
+  toggleCameraFacingMode: () => void;
   recordedBlob: Blob | null;
   cameraStream: MediaStream | null;
   error: string | null;
+  cameraFacingMode: 'user' | 'environment';
 }
 
 export const useRecording = (): UseRecordingReturn => {
@@ -26,6 +27,7 @@ export const useRecording = (): UseRecordingReturn => {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cameraFacingMode, setCameraFacingMode] = useState<'user' | 'environment'>('user');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
@@ -84,13 +86,14 @@ export const useRecording = (): UseRecordingReturn => {
     }
   };
 
-  const getCameraStream = async (): Promise<MediaStream | null> => {
+  const getCameraStream = async (facingMode: 'user' | 'environment' = 'user'): Promise<MediaStream | null> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 640 },
           height: { ideal: 480 },
-          frameRate: { ideal: 30 }
+          frameRate: { ideal: 30 },
+          facingMode: facingMode
         },
         audio: false
       });
@@ -139,7 +142,7 @@ export const useRecording = (): UseRecordingReturn => {
 
       // Get camera stream if enabled
       if (isCameraRecording) {
-        const videoStream = await getCameraStream();
+        const videoStream = await getCameraStream(cameraFacingMode);
         if (videoStream) {
           setCameraStream(videoStream);
           streams.push(videoStream);
@@ -184,7 +187,7 @@ export const useRecording = (): UseRecordingReturn => {
       console.error('Error starting recording:', err);
       setError('Failed to start recording');
     }
-  }, [isScreenRecording, isVoiceRecording, isCameraRecording]);
+  }, [isScreenRecording, isVoiceRecording, isCameraRecording, cameraFacingMode]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -218,6 +221,31 @@ export const useRecording = (): UseRecordingReturn => {
     }
   }, [isCameraRecording, cameraStream]);
 
+  const toggleCameraFacingMode = useCallback(async () => {
+    const newFacingMode = cameraFacingMode === 'user' ? 'environment' : 'user';
+    setCameraFacingMode(newFacingMode);
+    
+    // If camera is currently active, update the stream with the new facing mode
+    if (isCameraRecording && !isRecording) {
+      // Stop current camera stream if it exists
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        setCameraStream(null);
+      }
+      
+      // Get new camera stream with updated facing mode
+      try {
+        const newCameraStream = await getCameraStream(newFacingMode);
+        if (newCameraStream) {
+          setCameraStream(newCameraStream);
+        }
+      } catch (err) {
+        console.error('Error switching camera:', err);
+        setError('Failed to switch camera');
+      }
+    }
+  }, [cameraFacingMode, isCameraRecording, isRecording, cameraStream]);
+
   return {
     isRecording,
     isScreenRecording,
@@ -229,8 +257,10 @@ export const useRecording = (): UseRecordingReturn => {
     toggleScreen,
     toggleVoice,
     toggleCamera,
+    toggleCameraFacingMode,
     recordedBlob,
     cameraStream,
-    error
+    error,
+    cameraFacingMode
   };
 };

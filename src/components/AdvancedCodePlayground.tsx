@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Play, Square, Copy, Download, Maximize2, Monitor, Settings, Save } from 'lucide-react';
 import { executeCode, getFileExtension, getSupportedLanguages } from '../utils/codeRunner';
@@ -46,8 +45,10 @@ const AdvancedCodePlayground: React.FC<AdvancedCodePlaygroundProps> = ({
     toggleScreen,
     toggleVoice,
     toggleCamera,
+    toggleCameraFacingMode,
     recordedBlob,
-    cameraStream
+    cameraStream,
+    cameraFacingMode
   } = useRecording();
 
   const supportedLanguages = getSupportedLanguages();
@@ -240,11 +241,13 @@ public class Main {
               isScreenRecording={isScreenRecording}
               isVoiceRecording={isVoiceRecording}
               isCameraRecording={isCameraRecording}
+              cameraFacingMode={cameraFacingMode}
               onStartRecording={startRecording}
               onStopRecording={stopRecording}
               onToggleScreen={toggleScreen}
               onToggleVoice={toggleVoice}
               onToggleCamera={toggleCamera}
+              onToggleCameraFacingMode={toggleCameraFacingMode}
             />
             
             <button

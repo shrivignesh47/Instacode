@@ -1,17 +1,18 @@
-
 import React from 'react';
-import { Play, Square, Mic, MicOff, Camera, CameraOff, Monitor, MonitorOff } from 'lucide-react';
+import { Play, Square, Mic, MicOff, Camera, CameraOff, Monitor, MonitorOff, FlipHorizontal } from 'lucide-react';
 
 interface RecordingControlsProps {
   isRecording: boolean;
   isScreenRecording: boolean;
   isVoiceRecording: boolean;
   isCameraRecording: boolean;
+  cameraFacingMode?: 'user' | 'environment';
   onStartRecording: () => void;
   onStopRecording: () => void;
   onToggleScreen: () => void;
   onToggleVoice: () => void;
   onToggleCamera: () => void;
+  onToggleCameraFacingMode?: () => void;
 }
 
 const RecordingControls: React.FC<RecordingControlsProps> = ({
@@ -19,11 +20,13 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
   isScreenRecording,
   isVoiceRecording,
   isCameraRecording,
+  cameraFacingMode = 'user',
   onStartRecording,
   onStopRecording,
   onToggleScreen,
   onToggleVoice,
-  onToggleCamera
+  onToggleCamera,
+  onToggleCameraFacingMode
 }) => {
   return (
     <div className="flex items-center space-x-2">
@@ -65,6 +68,17 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
       >
         {isCameraRecording ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
       </button>
+
+      {/* Camera Facing Mode Toggle */}
+      {isCameraRecording && onToggleCameraFacingMode && (
+        <button
+          onClick={onToggleCameraFacingMode}
+          className="p-2 bg-purple-600 text-white rounded transition-colors"
+          title={`Switch to ${cameraFacingMode === 'user' ? 'back' : 'front'} camera`}
+        >
+          <FlipHorizontal className="w-4 h-4" />
+        </button>
+      )}
 
       {/* Start/Stop Recording */}
       <div className="w-px h-6 bg-gray-600 mx-2"></div>
