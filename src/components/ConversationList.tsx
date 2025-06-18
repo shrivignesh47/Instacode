@@ -58,7 +58,7 @@ const ConversationList = ({
 
   if (loading) {
     return (
-      <div className="w-full bg-gray-800 border-r border-gray-700 flex items-center justify-center">
+      <div className="w-full bg-gray-800 border-r border-gray-700 flex items-center justify-center flex-1">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
           <span className="text-white text-lg">Loading...</span>
@@ -68,7 +68,7 @@ const ConversationList = ({
   }
 
   return (
-    <div className="w-full bg-gray-800 border-r border-gray-700 flex-col flex-shrink-0">
+    <div className="w-full bg-gray-800 border-r border-gray-700 flex flex-col flex-1">
       {/* Header */}
       <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-700 flex-shrink-0">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
@@ -95,7 +95,7 @@ const ConversationList = ({
       </div>
 
       {/* Conversations List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="overflow-y-auto flex-1">
         {filteredConversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-4 sm:p-6 lg:p-8">
             <MessageCircle className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mb-3 sm:mb-4" />

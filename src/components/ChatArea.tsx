@@ -47,7 +47,7 @@ const ChatArea = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-900 min-w-0 h-full">
+    <div className="flex-1 flex flex-col bg-gray-900 min-w-0">
       {/* Chat Header */}
       <div className="relative z-10 p-3 sm:p-4 lg:p-6 bg-gray-800 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center space-x-3 min-w-0 flex-1">
@@ -89,7 +89,7 @@ const ChatArea = ({
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col">
         <MessageList 
           messages={messages} 
           isRefreshing={isRefreshing}

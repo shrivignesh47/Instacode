@@ -235,10 +235,10 @@ const MessageList = ({ messages, isRefreshing = false }: MessageListProps) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 relative">
+    <div className="flex-1 flex flex-col relative">
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto py-2 lg:py-4"
+        className="flex-1 overflow-y-auto py-2 lg:py-4 min-h-0"
         style={{
           scrollbarWidth: 'thin',
           scrollbarColor: '#374151 #1f2937'

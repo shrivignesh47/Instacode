@@ -86,7 +86,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       {/* Top Navigation */}
       {showTopNav && <TopNavigation 
         onMobileSidebarToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
@@ -170,12 +170,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Main Content */}
         <main 
-          className={`transition-all duration-300 ${showTopNav ? 'pt-16' : ''}`}
+          className={`transition-all duration-300 ${showTopNav ? 'pt-16' : ''} flex-1`}
           style={getMainContentMargins()}
         >
           <div className={`${
             isMessagesPage 
-              ? 'h-screen overflow-hidden' 
+              ? 'flex flex-col h-full' 
               : 'min-h-screen p-2 sm:p-4 lg:p-6 pb-20 lg:pb-6'
           }`}>
             {children}

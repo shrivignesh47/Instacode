@@ -273,10 +273,10 @@ const MessagesPage = () => {
 
   return (
     <Layout>
-      <div className="h-full bg-gray-900 flex overflow-hidden">
+      <div className="h-full bg-gray-900 flex flex-1 overflow-hidden">
         {/* Conversation List */}
         <div className={`${showChatList ? 'flex w-full' : 'hidden'} lg:flex lg:w-80 xl:w-96 flex-shrink-0`}>
-          <div className="flex flex-col w-full h-full">
+          <div className="flex flex-col w-full flex-1">
             <ForumQuickAccess />
             <ConversationList
               conversations={conversations}
