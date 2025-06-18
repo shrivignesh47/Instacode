@@ -1,5 +1,5 @@
-
 import { useState, useCallback, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import ConversationList from '../components/ConversationList';
 import ChatArea from '../components/ChatArea';
@@ -13,21 +13,95 @@ import { useRealTimeMessages } from '../hooks/useRealTimeMessages';
 
 const MessagesPage = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showChatList, setShowChatList] = useState(true);
   const [showUserSearch, setShowUserSearch] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [initialUserParam, setInitialUserParam] = useState<string | null>(null);
 
   const { conversations, loading, loadConversations } = useConversations();
   const { messages, loadMessages, addMessage, updateMessage, setMessages } = useMessages();
 
-  // Handle manual refresh of messages
+  // Parse URL query parameters for direct navigation to a specific user's chat
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const userParam = queryParams.get('user');
+    
+    if (userParam) {
+      setInitialUserParam(userParam);
+    }
+  }, [location]);
+
+  // Handle direct navigation to a specific user's chat
+  useEffect(() => {
+    const initializeDirectChat = async () => {
+      if (!initialUserParam || !user || loading || conversations.length === 0) return;
+      
+      try {
+        // Find the user profile by username
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url, bio')
+          .eq('username', initialUserParam)
+          .single();
+          
+        if (profileError || !profileData) {
+          console.error('Error finding user profile:', profileError);
+          return;
+        }
+        
+        // Check if conversation already exists
+        const existingConversation = conversations.find(conv => 
+          conv.other_user.id === profileData.id
+        );
+        
+        if (existingConversation) {
+          // Use existing conversation
+          handleConversationSelect(existingConversation);
+        } else {
+          // Create new conversation
+          const { data: conversationId, error } = await supabase
+            .rpc('get_or_create_conversation', {
+              user1_id: user.id,
+              user2_id: profileData.id
+            });
+            
+          if (error) {
+            console.error('Error creating conversation:', error);
+            return;
+          }
+          
+          // Reload conversations to get the new one
+          await loadConversations();
+          
+          // Find and select the new conversation
+          const newConversation = conversations.find(conv => conv.id === conversationId);
+          if (newConversation) {
+            handleConversationSelect(newConversation);
+          }
+        }
+        
+        // Clear the initial user param to prevent reprocessing
+        setInitialUserParam(null);
+        
+        // Update URL to remove the query parameter
+        navigate('/messages', { replace: true });
+      } catch (error) {
+        console.error('Error initializing direct chat:', error);
+      }
+    };
+    
+    initializeDirectChat();
+  }, [initialUserParam, user, loading, conversations, navigate]);
+
+  // Handle manual refresh of messages (but don't show UI indicator)
   const handleRefreshMessages = useCallback(async () => {
-    if (!selectedConversation || isRefreshing) return;
+    if (!selectedConversation) return;
     
     setIsRefreshing(true);
     try {
-      console.log('Manually refreshing messages for conversation:', selectedConversation.id);
       await loadMessages(selectedConversation.id);
       await loadConversations();
     } catch (error) {
@@ -35,9 +109,9 @@ const MessagesPage = () => {
     } finally {
       setIsRefreshing(false);
     }
-  }, [selectedConversation, loadMessages, loadConversations, isRefreshing]);
+  }, [selectedConversation, loadMessages, loadConversations]);
 
-  // Reduced auto-refresh frequency to prevent constant refreshing
+  // Background auto-refresh
   useEffect(() => {
     if (!selectedConversation) return;
 
@@ -45,7 +119,7 @@ const MessagesPage = () => {
       if (!isRefreshing) {
         handleRefreshMessages();
       }
-    }, 5000); // Increased to 5 seconds to reduce frequency
+    }, 10000); // Every 10 seconds
 
     return () => clearInterval(autoRefreshInterval);
   }, [selectedConversation, handleRefreshMessages, isRefreshing]);
@@ -223,7 +297,7 @@ const MessagesPage = () => {
             onStartNewConversation={() => setShowUserSearch(true)}
             onMessageSent={handleMessageSent}
             onRefreshMessages={handleRefreshMessages}
-            isRefreshing={isRefreshing}
+            isRefreshing={false} // Always pass false to hide the refreshing indicator
           />
         </div>
       </div>

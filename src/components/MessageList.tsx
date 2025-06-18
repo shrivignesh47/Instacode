@@ -1,7 +1,6 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, CheckCheck, Code, Image, Video, ExternalLink, RefreshCw } from 'lucide-react';
+import { Check, CheckCheck, Code, Image, Video, ExternalLink } from 'lucide-react';
 import { Message } from '../hooks/useMessages';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, PostWithUser } from '../lib/supabaseClient';
@@ -237,14 +236,6 @@ const MessageList = ({ messages, isRefreshing = false }: MessageListProps) => {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 relative">
-      {/* Refreshing indicator */}
-      {isRefreshing && (
-        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 bg-gray-800 border border-gray-600 rounded-full px-3 py-1 flex items-center space-x-2">
-          <RefreshCw className="w-3 h-3 text-purple-400 animate-spin" />
-          <span className="text-xs text-gray-300">Refreshing...</span>
-        </div>
-      )}
-
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto py-2 lg:py-4"
