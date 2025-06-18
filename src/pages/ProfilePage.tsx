@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -13,11 +13,14 @@ import ContentTabs from '../components/ContentTabs';
 import PostGrid from '../components/PostGrid';
 import ShareModal from '../components/ShareModal';
 import PostOptionsDropdown from '../components/PostOptionsDropdown';
+import FollowersModal from '../components/FollowersModal';
+import FollowingModal from '../components/FollowingModal';
 import { useProfile } from '../hooks/useProfile';
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   const {
     profile,
@@ -60,6 +63,10 @@ const ProfilePage = () => {
   const [isCodeCopied, setIsCodeCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
   const [editPost, setEditPost] = useState<any>(null);
+  
+  // New state for followers and following modals
+  const [isFollowersModalOpen, setIsFollowersModalOpen] = useState(false);
+  const [isFollowingModalOpen, setIsFollowingModalOpen] = useState(false);
 
   useEffect(() => {
     if (selectedPost) {
@@ -179,6 +186,12 @@ const ProfilePage = () => {
     setIsPostOptionsOpen(false);
   };
 
+  const handleMessageClick = () => {
+    if (profile) {
+      navigate(`/messages?user=${profile.username}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -205,7 +218,10 @@ const ProfilePage = () => {
       <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 overflow-hidden">
         {/* Header - More compact on mobile */}
         <div className="flex items-center justify-between mb-3 sm:mb-6 pt-3 sm:pt-4">
-          <button className="flex items-center text-gray-400 hover:text-white p-1 sm:p-2 -ml-1 sm:-ml-2 rounded-lg">
+          <button 
+            onClick={() => navigate('/home')}
+            className="flex items-center text-gray-400 hover:text-white p-1 sm:p-2 -ml-1 sm:-ml-2 rounded-lg"
+          >
             <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             <span className="text-sm sm:text-base hidden sm:inline">Back to Feed</span>
           </button>
@@ -221,6 +237,9 @@ const ProfilePage = () => {
             totalPosts={totalPosts}
             onEditProfile={handleEditProfile}
             onFollow={handleFollow}
+            onFollowersClick={() => setIsFollowersModalOpen(true)}
+            onFollowingClick={() => setIsFollowingModalOpen(true)}
+            onMessageClick={handleMessageClick}
           />
         </div>
 
@@ -301,6 +320,22 @@ const ProfilePage = () => {
           setIsCodeCopied(true);
           setTimeout(() => setIsCodeCopied(false), 2000);
         }}
+      />
+
+      {/* Followers Modal */}
+      <FollowersModal
+        isOpen={isFollowersModalOpen}
+        onClose={() => setIsFollowersModalOpen(false)}
+        userId={profile.id}
+        username={profile.username}
+      />
+
+      {/* Following Modal */}
+      <FollowingModal
+        isOpen={isFollowingModalOpen}
+        onClose={() => setIsFollowingModalOpen(false)}
+        userId={profile.id}
+        username={profile.username}
       />
     </div>
   );

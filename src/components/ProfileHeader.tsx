@@ -1,5 +1,5 @@
-
-import { Check, Edit, MapPin, Globe, Github, Linkedin, Twitter, Calendar, Loader2 } from 'lucide-react';
+import { Check, Edit, MapPin, Globe, Github, Linkedin, Twitter, Calendar, Loader2, MessageCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface ProfileHeaderProps {
   profile: any;
@@ -9,6 +9,9 @@ interface ProfileHeaderProps {
   totalPosts: number;
   onEditProfile: () => void;
   onFollow: () => void;
+  onFollowersClick: () => void;
+  onFollowingClick: () => void;
+  onMessageClick: () => void;
 }
 
 const ProfileHeader = ({
@@ -18,8 +21,13 @@ const ProfileHeader = ({
   followLoading,
   totalPosts,
   onEditProfile,
-  onFollow
+  onFollow,
+  onFollowersClick,
+  onFollowingClick,
+  onMessageClick
 }: ProfileHeaderProps) => {
+  const navigate = useNavigate();
+
   return (
     <div className="bg-gray-800 rounded-xl p-8 mb-6">
       <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
@@ -47,31 +55,43 @@ const ProfileHeader = ({
               <p className="text-gray-400 text-lg">@{profile.username}</p>
             </div>
             
-            {isCurrentUser ? (
-              <button
-                onClick={onEditProfile}
-                className="mt-4 md:mt-0 px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors flex items-center"
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Profile
-              </button>
-            ) : (
-              <button
-                onClick={onFollow}
-                disabled={followLoading}
-                className={`mt-4 md:mt-0 px-6 py-2 rounded-lg font-medium transition-colors ${
-                  isFollowing
-                    ? 'bg-gray-600 hover:bg-gray-700 text-white'
-                    : 'bg-purple-600 hover:bg-purple-700 text-white'
-                }`}
-              >
-                {followLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  isFollowing ? 'Following' : 'Follow'
-                )}
-              </button>
-            )}
+            <div className="flex items-center space-x-3 mt-4 md:mt-0">
+              {isCurrentUser ? (
+                <button
+                  onClick={onEditProfile}
+                  className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors flex items-center"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Profile
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={onFollow}
+                    disabled={followLoading}
+                    className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                      isFollowing
+                        ? 'bg-gray-600 hover:bg-gray-700 text-white'
+                        : 'bg-purple-600 hover:bg-purple-700 text-white'
+                    }`}
+                  >
+                    {followLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      isFollowing ? 'Following' : 'Follow'
+                    )}
+                  </button>
+                  
+                  <button
+                    onClick={onMessageClick}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Message
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Bio */}
@@ -152,11 +172,17 @@ const ProfileHeader = ({
               <div className="text-2xl font-bold text-white">{totalPosts}</div>
               <div className="text-gray-400">Posts</div>
             </div>
-            <div className="text-center">
+            <div 
+              className="text-center cursor-pointer hover:bg-gray-700 rounded-lg py-2 transition-colors"
+              onClick={onFollowersClick}
+            >
               <div className="text-2xl font-bold text-white">{profile.followers_count || 0}</div>
               <div className="text-gray-400">Followers</div>
             </div>
-            <div className="text-center">
+            <div 
+              className="text-center cursor-pointer hover:bg-gray-700 rounded-lg py-2 transition-colors"
+              onClick={onFollowingClick}
+            >
               <div className="text-2xl font-bold text-white">{profile.following_count || 0}</div>
               <div className="text-gray-400">Following</div>
             </div>

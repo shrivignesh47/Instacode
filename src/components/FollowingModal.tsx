@@ -1,0 +1,188 @@
+import React, { useState, useEffect } from 'react';
+import { X, Search, MessageCircle, Loader2, Users } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+
+interface FollowingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  userId: string;
+  username: string;
+}
+
+interface Following {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+}
+
+const FollowingModal: React.FC<FollowingModalProps> = ({ isOpen, onClose, userId, username }) => {
+  const [following, setFollowing] = useState<Following[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchFollowing();
+    }
+  }, [isOpen, userId]);
+
+  const fetchFollowing = async () => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('followers')
+        .select(`
+          followed_id,
+          profiles:profiles!followers_followed_id_fkey(
+            id,
+            username,
+            display_name,
+            avatar_url,
+            bio
+          )
+        `)
+        .eq('follower_id', userId);
+
+      if (error) {
+        throw error;
+      }
+
+      const formattedFollowing = data
+        .map(item => {
+          const profile = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
+          return profile;
+        })
+        .filter(Boolean);
+
+      setFollowing(formattedFollowing);
+    } catch (error) {
+      console.error('Error fetching following:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUserClick = (followedUser: Following) => {
+    navigate(`/profile/${followedUser.username}`);
+    onClose();
+  };
+
+  const handleStartConversation = (followedUser: Following, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/messages?user=${followedUser.username}`);
+    onClose();
+  };
+
+  const filteredFollowing = following.filter(followedUser => 
+    followedUser.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (followedUser.display_name && followedUser.display_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (followedUser.bio && followedUser.bio.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-lg w-full max-w-md max-h-[80vh] flex flex-col border border-gray-700">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+          <h2 className="text-lg font-semibold text-white">{username} is Following</h2>
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="p-4 border-b border-gray-700">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search following..."
+              className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        {/* Following List */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-purple-500 mr-2" />
+              <span className="text-gray-400">Loading following...</span>
+            </div>
+          ) : filteredFollowing.length > 0 ? (
+            <div className="p-4 space-y-3">
+              {filteredFollowing.map((followedUser) => (
+                <div
+                  key={followedUser.id}
+                  onClick={() => handleUserClick(followedUser)}
+                  className="flex items-center justify-between p-3 hover:bg-gray-700 rounded-lg cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                    <img
+                      src={followedUser.avatar_url || 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=50'}
+                      alt={followedUser.username}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-medium truncate">
+                        {followedUser.display_name || followedUser.username}
+                      </div>
+                      <div className="text-gray-400 text-sm truncate">@{followedUser.username}</div>
+                    </div>
+                  </div>
+                  
+                  {user && user.id !== followedUser.id && (
+                    <button
+                      onClick={(e) => handleStartConversation(followedUser, e)}
+                      className="ml-2 p-2 text-gray-400 hover:text-purple-400 hover:bg-gray-600 rounded-full transition-colors"
+                      title="Send message"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+              <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                <Users className="w-8 h-8 text-gray-500" />
+              </div>
+              {searchQuery ? (
+                <>
+                  <h3 className="text-lg font-medium text-white mb-2">No users found</h3>
+                  <p className="text-gray-400 text-sm">
+                    No users match your search criteria
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-lg font-medium text-white mb-2">Not following anyone</h3>
+                  <p className="text-gray-400 text-sm">
+                    {username} isn't following anyone yet
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FollowingModal;
