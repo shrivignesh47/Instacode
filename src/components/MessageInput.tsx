@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Send, Paperclip, Smile, RefreshCw, Users } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -26,17 +25,21 @@ const MessageInput = ({
   const [sendingMessage, setSendingMessage] = useState(false);
   const [showForumSuggestions, setShowForumSuggestions] = useState(false);
 
-  const checkForumMentions = (text: string) => {
-    const forumMentions = forums.filter(forum => 
-      text.toLowerCase().includes(forum.name.toLowerCase()) && !forum.is_member
+  // Memoize the mentioned forums calculation
+  const mentionedForums = useMemo(() => {
+    if (!messageInput) return [];
+    return forums.filter(forum => 
+      messageInput.toLowerCase().includes(forum.name.toLowerCase()) && !forum.is_member
     );
-    setShowForumSuggestions(forumMentions.length > 0);
-    return forumMentions;
-  };
+  }, [messageInput, forums]);
+
+  // Update showForumSuggestions based on mentionedForums
+  useEffect(() => {
+    setShowForumSuggestions(mentionedForums.length > 0);
+  }, [mentionedForums]);
 
   const handleInputChange = (value: string) => {
     setMessageInput(value);
-    checkForumMentions(value);
   };
 
   const handleJoinForum = async (forumId: string) => {
@@ -113,8 +116,6 @@ const MessageInput = ({
       setSendingMessage(false);
     }
   };
-
-  const mentionedForums = messageInput ? checkForumMentions(messageInput) : [];
 
   return (
     <div className="p-3 lg:p-6 bg-gray-800 border-t border-gray-700 flex-shrink-0">
