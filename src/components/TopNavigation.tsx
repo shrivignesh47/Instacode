@@ -9,12 +9,10 @@ import { supabase } from '../lib/supabaseClient';
 
 interface TopNavigationProps {
   onMobileSidebarToggle?: () => void;
-  onMobileRightSidebarToggle?: () => void;
 }
 
 const TopNavigation: React.FC<TopNavigationProps> = ({ 
-  onMobileSidebarToggle, 
-  onMobileRightSidebarToggle 
+  onMobileSidebarToggle
 }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showTaurusChat, setShowTaurusChat] = useState(false);
