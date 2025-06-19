@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import { Check, CheckCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,7 +23,7 @@ interface MessageListProps {
 }
 
 const MessageList = ({ messages }: MessageListProps) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { containerRef, scrollToBottom } = useChatScroll();
 
   // Auto-scroll to bottom when new messages arrive
@@ -45,7 +44,8 @@ const MessageList = ({ messages }: MessageListProps) => {
   };
 
   const renderMessage = (message: Message) => {
-    const isOwnMessage = message.sender_id === user?.id;
+    // Only determine message ownership when auth is fully loaded and user exists
+    const isOwnMessage = !authLoading && user && user.id === message.sender_id;
     
     return (
       <div
@@ -79,6 +79,25 @@ const MessageList = ({ messages }: MessageListProps) => {
       </div>
     );
   };
+
+  // Show loading state while authentication is being determined
+  if (authLoading) {
+    return (
+      <div className="h-full flex flex-col">
+        <div
+          ref={containerRef}
+          className="flex-1 overflow-y-auto py-2 lg:py-4"
+        >
+          <div className="flex items-center justify-center h-full px-4">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+              <p className="text-gray-400 text-sm">Loading messages...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
