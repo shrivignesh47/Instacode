@@ -18,6 +18,11 @@ interface User {
   posts: number;
   joinDate: string;
   verified: boolean;
+  receiveFollowNotifications: boolean;
+  receiveMessageNotifications: boolean;
+  receivePostLikeNotifications: boolean;
+  receivePostCommentNotifications: boolean;
+  receiveNewPostFromFollowedNotifications: boolean;
 }
 
 interface AuthContextType {
@@ -68,6 +73,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         month: 'long' 
       }),
       verified: false,
+      receiveFollowNotifications: true,
+      receiveMessageNotifications: true,
+      receivePostLikeNotifications: true,
+      receivePostCommentNotifications: true,
+      receiveNewPostFromFollowedNotifications: true,
     };
   };
 
@@ -123,6 +133,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               month: 'long' 
             }),
             verified: false,
+            receiveFollowNotifications: profile.receive_follow_notifications ?? true,
+            receiveMessageNotifications: profile.receive_message_notifications ?? true,
+            receivePostLikeNotifications: profile.receive_post_like_notifications ?? true,
+            receivePostCommentNotifications: profile.receive_post_comment_notifications ?? true,
+            receiveNewPostFromFollowedNotifications: profile.receive_new_post_from_followed_notifications ?? true,
           };
         }
 
@@ -175,6 +190,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             month: 'long' 
           }),
           verified: false,
+          receiveFollowNotifications: profile.receive_follow_notifications ?? true,
+          receiveMessageNotifications: profile.receive_message_notifications ?? true,
+          receivePostLikeNotifications: profile.receive_post_like_notifications ?? true,
+          receivePostCommentNotifications: profile.receive_post_comment_notifications ?? true,
+          receiveNewPostFromFollowedNotifications: profile.receive_new_post_from_followed_notifications ?? true,
         };
       }
 
@@ -202,6 +222,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profileData.linkedinUrl !== undefined) updateData.linkedin_url = profileData.linkedinUrl;
       if (profileData.twitterUrl !== undefined) updateData.twitter_url = profileData.twitterUrl;
       if (profileData.avatar !== undefined) updateData.avatar_url = profileData.avatar;
+      
+      // Add notification preferences
+      if (profileData.receiveFollowNotifications !== undefined) 
+        updateData.receive_follow_notifications = profileData.receiveFollowNotifications;
+      if (profileData.receiveMessageNotifications !== undefined) 
+        updateData.receive_message_notifications = profileData.receiveMessageNotifications;
+      if (profileData.receivePostLikeNotifications !== undefined) 
+        updateData.receive_post_like_notifications = profileData.receivePostLikeNotifications;
+      if (profileData.receivePostCommentNotifications !== undefined) 
+        updateData.receive_post_comment_notifications = profileData.receivePostCommentNotifications;
+      if (profileData.receiveNewPostFromFollowedNotifications !== undefined) 
+        updateData.receive_new_post_from_followed_notifications = profileData.receiveNewPostFromFollowedNotifications;
 
       const { error } = await supabase
         .from('profiles')
@@ -239,6 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('profiles')
         .select('*')
         .or(`username.ilike.%${query}%,email.ilike.%${query}%`)
+        .neq('id', user?.id) // Exclude current user
         .limit(10);
 
       if (error) {
@@ -265,6 +298,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           month: 'long' 
         }),
         verified: false,
+        receiveFollowNotifications: profile.receive_follow_notifications ?? true,
+        receiveMessageNotifications: profile.receive_message_notifications ?? true,
+        receivePostLikeNotifications: profile.receive_post_like_notifications ?? true,
+        receivePostCommentNotifications: profile.receive_post_comment_notifications ?? true,
+        receiveNewPostFromFollowedNotifications: profile.receive_new_post_from_followed_notifications ?? true,
       }));
     } catch (error) {
       console.error('Error in searchUsers:', error);
@@ -301,6 +339,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         followers_count: 0,
         following_count: 0,
         posts_count: 0,
+        receive_follow_notifications: true,
+        receive_message_notifications: true,
+        receive_post_like_notifications: true,
+        receive_post_comment_notifications: true,
+        receive_new_post_from_followed_notifications: true,
       });
 
       if (error) {

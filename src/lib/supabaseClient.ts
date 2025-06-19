@@ -32,6 +32,11 @@ export interface Database {
           verified: boolean | null;
           created_at: string;
           updated_at: string;
+          receive_follow_notifications: boolean;
+          receive_message_notifications: boolean;
+          receive_post_like_notifications: boolean;
+          receive_post_comment_notifications: boolean;
+          receive_new_post_from_followed_notifications: boolean;
         };
         Insert: {
           id: string;
@@ -51,6 +56,11 @@ export interface Database {
           verified?: boolean | null;
           created_at?: string;
           updated_at?: string;
+          receive_follow_notifications?: boolean;
+          receive_message_notifications?: boolean;
+          receive_post_like_notifications?: boolean;
+          receive_post_comment_notifications?: boolean;
+          receive_new_post_from_followed_notifications?: boolean;
         };
         Update: {
           id?: string;
@@ -70,6 +80,11 @@ export interface Database {
           verified?: boolean | null;
           created_at?: string;
           updated_at?: string;
+          receive_follow_notifications?: boolean;
+          receive_message_notifications?: boolean;
+          receive_post_like_notifications?: boolean;
+          receive_post_comment_notifications?: boolean;
+          receive_new_post_from_followed_notifications?: boolean;
         };
       };
       posts: {
@@ -381,6 +396,38 @@ export interface Database {
           content?: string;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      notifications: {
+        Row: {
+          id: string;
+          recipient_id: string;
+          sender_id: string | null;
+          type: string;
+          entity_id: string | null;
+          content: string | null;
+          is_read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          recipient_id: string;
+          sender_id?: string | null;
+          type: string;
+          entity_id?: string | null;
+          content?: string | null;
+          is_read?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          recipient_id?: string;
+          sender_id?: string | null;
+          type?: string;
+          entity_id?: string | null;
+          content?: string | null;
+          is_read?: boolean;
+          created_at?: string;
         };
       };
     };

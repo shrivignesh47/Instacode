@@ -4,6 +4,8 @@ import { Search, Bell, ShoppingBag, Settings, LogOut, Code, Menu, MessageCircle,
 import { useAuth } from '../contexts/AuthContext';
 import TaurusAIChat from './TaurusAIChat';
 import UserSearchModal from './UserSearchModal';
+import NotificationsModal from './NotificationsModal';
+import { supabase } from '../lib/supabaseClient';
 
 interface TopNavigationProps {
   onMobileSidebarToggle?: () => void;
@@ -17,9 +19,69 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showTaurusChat, setShowTaurusChat] = useState(false);
   const [showUserSearch, setShowUserSearch] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  // Fetch unread notification count on component mount and real-time updates
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchUnreadCount = async () => {
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipient_id', user.id)
+        .eq('is_read', false);
+
+      if (error) {
+        console.error('Error fetching unread notifications:', error);
+      } else {
+        setUnreadNotificationCount(count || 0);
+      }
+    };
+
+    fetchUnreadCount();
+
+    // Real-time subscription for new notifications
+    const channel = supabase
+      .channel('notifications_channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `recipient_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('New notification received:', payload);
+          setUnreadNotificationCount(prev => prev + 1);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `recipient_id=eq.${user.id}`
+        },
+        (payload) => {
+          // If a notification is marked as read, decrement count
+          if (payload.old.is_read === false && payload.new.is_read === true) {
+            setUnreadNotificationCount(prev => Math.max(0, prev - 1));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -32,6 +94,10 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
 
   const handleStartConversation = (selectedUser: any) => {
     navigate(`/messages?user=${selectedUser.username}`);
+  };
+
+  const handleMarkAsRead = () => {
+    setUnreadNotificationCount(prev => Math.max(0, prev - 1));
   };
 
   return (
@@ -95,9 +161,17 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
               <ShoppingBag className="w-5 h-5" />
             </button>
             
-            <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 relative">
+            {/* Notification Bell */}
+            <button
+              onClick={() => setShowNotificationsModal(true)}
+              className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 relative"
+            >
               <Bell className="w-5 h-5" />
-              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+              {unreadNotificationCount > 0 && (
+                <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center -mt-1 -mr-1">
+                  {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                </span>
+              )}
             </button>
             
             {/* Taurus AI Chat Button */}
@@ -180,6 +254,13 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
         onClose={() => setShowUserSearch(false)}
         onUserSelect={handleUserSelect}
         onStartConversation={handleStartConversation}
+      />
+
+      {/* Notifications Modal */}
+      <NotificationsModal
+        isOpen={showNotificationsModal}
+        onClose={() => setShowNotificationsModal(false)}
+        onMarkAsRead={handleMarkAsRead}
       />
     </>
   );
