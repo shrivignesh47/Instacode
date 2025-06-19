@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import {
   User, 
@@ -12,9 +11,11 @@ import {
   Twitter, 
   Code, 
   Award, 
-  Save
+  Save,
+  Loader2
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../contexts/AuthContext';
 import ProfileSettingsSection from "./Settings/ProfileSettingsSection";
 import AccountSettingsSection from "./Settings/AccountSettingsSection";
 import NotificationSettingsSection from "./Settings/NotificationSettingsSection";
@@ -27,6 +28,11 @@ const SettingsPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const { user, updateProfile } = useAuth();
 
   // Fetch profile from database
   const [profileData, setProfileData] = useState({
@@ -51,14 +57,11 @@ const SettingsPage = () => {
   });
 
   const [notificationSettings, setNotificationSettings] = useState({
-    emailNotifications: true,
-    pushNotifications: true,
-    postLikes: true,
-    postComments: true,
-    newFollowers: true,
-    mentions: true,
-    weeklyDigest: false,
-    productUpdates: true,
+    receiveFollowNotifications: true,
+    receiveMessageNotifications: true,
+    receivePostLikeNotifications: true,
+    receivePostCommentNotifications: true,
+    receiveNewPostFromFollowedNotifications: true,
   });
 
   const [privacySettings, setPrivacySettings] = useState({
@@ -73,21 +76,13 @@ const SettingsPage = () => {
   // Fetch user's profile info on mount
   useEffect(() => {
     const fetchProfile = async () => {
-      // Get current user session
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError || !session?.user) return;
-
-      const userId = session.user.id;
+      if (!user) return;
 
       // Get profile from table
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', user.id)
         .single();
 
       if (profile) {
@@ -105,10 +100,18 @@ const SettingsPage = () => {
           hackerrankUrl: '',
           codeforceUrl: '',
         });
+        
+        setNotificationSettings({
+          receiveFollowNotifications: profile.receive_follow_notifications ?? true,
+          receiveMessageNotifications: profile.receive_message_notifications ?? true,
+          receivePostLikeNotifications: profile.receive_post_like_notifications ?? true,
+          receivePostCommentNotifications: profile.receive_post_comment_notifications ?? true,
+          receiveNewPostFromFollowedNotifications: profile.receive_new_post_from_followed_notifications ?? true,
+        });
       }
     };
     fetchProfile();
-  }, []);
+  }, [user]);
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
@@ -164,9 +167,55 @@ const SettingsPage = () => {
     },
   ];
 
-  const handleSave = () => {
-    console.log('Saving settings...');
-    // In a real app, this would save to the backend
+  const handleSave = async () => {
+    if (!user) return;
+    
+    setIsSaving(true);
+    setSaveSuccess(false);
+    setSaveError(null);
+
+    try {
+      // Update profile data
+      await updateProfile({
+        displayName: profileData.displayName,
+        username: profileData.username,
+        email: profileData.email,
+        bio: profileData.bio,
+        location: profileData.location,
+        website: profileData.website,
+        githubUrl: profileData.githubUrl,
+        linkedinUrl: profileData.linkedinUrl,
+        twitterUrl: profileData.twitterUrl,
+      });
+
+      // Update notification settings
+      const { error: notificationUpdateError } = await supabase
+        .from('profiles')
+        .update({
+          receive_follow_notifications: notificationSettings.receiveFollowNotifications,
+          receive_message_notifications: notificationSettings.receiveMessageNotifications,
+          receive_post_like_notifications: notificationSettings.receivePostLikeNotifications,
+          receive_post_comment_notifications: notificationSettings.receivePostCommentNotifications,
+          receive_new_post_from_followed_notifications: notificationSettings.receiveNewPostFromFollowedNotifications,
+        })
+        .eq('id', user.id);
+
+      if (notificationUpdateError) {
+        throw notificationUpdateError;
+      }
+
+      setSaveSuccess(true);
+      
+      // Reset success message after 3 seconds
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error saving settings:', error);
+      setSaveError(error.message || 'Failed to save settings');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Replace section render functions with subcomponents
@@ -269,13 +318,34 @@ const SettingsPage = () => {
 
             {/* Save Button */}
             <div className="mt-8 pt-6 border-t border-gray-700">
+              {saveSuccess && (
+                <div className="mb-4 p-3 bg-green-900 bg-opacity-50 border border-green-600 rounded-lg text-green-200 text-sm">
+                  Settings saved successfully!
+                </div>
+              )}
+              
+              {saveError && (
+                <div className="mb-4 p-3 bg-red-900 bg-opacity-50 border border-red-600 rounded-lg text-red-200 text-sm">
+                  Error: {saveError}
+                </div>
+              )}
+              
               <button
                 onClick={handleSave}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                disabled={isSaving}
+                className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2"
               >
-                {/* Save icon */}
-                <Save className="w-4 h-4" />
-                <span>Save Changes</span>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Save Changes</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

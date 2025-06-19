@@ -1,8 +1,13 @@
-
 import React from "react";
 
 interface NotificationSettingsSectionProps {
-  notificationSettings: any;
+  notificationSettings: {
+    receiveFollowNotifications: boolean;
+    receiveMessageNotifications: boolean;
+    receivePostLikeNotifications: boolean;
+    receivePostCommentNotifications: boolean;
+    receiveNewPostFromFollowedNotifications: boolean;
+  };
   setNotificationSettings: (settings: any) => void;
 }
 
@@ -18,17 +23,14 @@ const NotificationSettingsSection: React.FC<NotificationSettingsSectionProps> = 
           <div key={key} className="flex items-center justify-between">
             <div>
               <h4 className="text-white font-medium capitalize">
-                {key.replace(/([A-Z])/g, " $1").trim()}
+                {key.replace(/([A-Z])/g, " $1").replace(/receive/g, "").replace(/notifications/g, "").trim()}
               </h4>
               <p className="text-gray-400 text-sm">
-                {key === "emailNotifications" && "Receive notifications via email"}
-                {key === "pushNotifications" && "Receive push notifications in browser"}
-                {key === "postLikes" && "When someone likes your post"}
-                {key === "postComments" && "When someone comments on your post"}
-                {key === "newFollowers" && "When someone follows you"}
-                {key === "mentions" && "When someone mentions you"}
-                {key === "weeklyDigest" && "Weekly summary of your activity"}
-                {key === "productUpdates" && "Updates about new features"}
+                {key === "receiveFollowNotifications" && "When someone follows you"}
+                {key === "receiveMessageNotifications" && "When someone sends you a direct message"}
+                {key === "receivePostLikeNotifications" && "When someone likes your post"}
+                {key === "receivePostCommentNotifications" && "When someone comments on your post"}
+                {key === "receiveNewPostFromFollowedNotifications" && "When a user you follow creates a new post"}
               </p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
