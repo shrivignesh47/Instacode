@@ -39,14 +39,33 @@ export const fetchLeetCodeProfileStats = async (username: string): Promise<LeetC
     const response = await fetch(`https://leetcode-api-pied.vercel.app/user/${username}`);
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch LeetCode profile: ${response.statusText}`);
+      const errorMessage = `HTTP ${response.status} ${response.statusText}`;
+      console.error('LeetCode API Error:', errorMessage);
+      throw new Error(`Failed to fetch LeetCode profile: ${errorMessage}. Please verify the username "${username}" exists on LeetCode.`);
     }
     
     const data = await response.json();
     return data;
   } catch (error) {
     console.error('Error fetching LeetCode profile:', error);
-    throw new Error('Unable to fetch LeetCode profile. Please check the username and try again.');
+    
+    // Handle network-level errors (CORS, network connectivity, etc.)
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error('Network error: Unable to connect to LeetCode API. Please check your internet connection and try again.');
+    }
+    
+    // Handle JSON parsing errors
+    if (error instanceof SyntaxError) {
+      throw new Error('Invalid response from LeetCode API. The service may be temporarily unavailable.');
+    }
+    
+    // Re-throw our custom errors
+    if (error instanceof Error && error.message.includes('Failed to fetch LeetCode profile:')) {
+      throw error;
+    }
+    
+    // Handle any other unexpected errors
+    throw new Error(`Unable to fetch LeetCode profile for "${username}". Please check the username and try again.`);
   }
 };
 
@@ -55,14 +74,33 @@ export const fetchLeetCodeSubmissions = async (username: string, limit: number =
     const response = await fetch(`https://leetcode-api-pied.vercel.app/user/${username}/submissions?limit=${limit}`);
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch LeetCode submissions: ${response.statusText}`);
+      const errorMessage = `HTTP ${response.status} ${response.statusText}`;
+      console.error('LeetCode Submissions API Error:', errorMessage);
+      throw new Error(`Failed to fetch LeetCode submissions: ${errorMessage}. Please verify the username "${username}" exists on LeetCode.`);
     }
     
     const data = await response.json();
     return data;
   } catch (error) {
     console.error('Error fetching LeetCode submissions:', error);
-    throw new Error('Unable to fetch LeetCode submissions. Please check the username and try again.');
+    
+    // Handle network-level errors (CORS, network connectivity, etc.)
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error('Network error: Unable to connect to LeetCode API. Please check your internet connection and try again.');
+    }
+    
+    // Handle JSON parsing errors
+    if (error instanceof SyntaxError) {
+      throw new Error('Invalid response from LeetCode API. The service may be temporarily unavailable.');
+    }
+    
+    // Re-throw our custom errors
+    if (error instanceof Error && error.message.includes('Failed to fetch LeetCode submissions:')) {
+      throw error;
+    }
+    
+    // Handle any other unexpected errors
+    throw new Error(`Unable to fetch LeetCode submissions for "${username}". Please check the username and try again.`);
   }
 };
 
