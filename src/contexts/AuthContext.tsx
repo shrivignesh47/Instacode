@@ -75,9 +75,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Converting Supabase user:', supabaseUser.id);
     
     try {
-      // Set a timeout for the query - increased from 5000ms to 10000ms
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile query timeout')), 10000)
+      // Increased timeout to 30 seconds and improved error handling
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Profile query timeout')), 30000)
       );
 
       const queryPromise = supabase
@@ -87,40 +87,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       console.log('Querying profiles table...');
-      const { data: profile, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+      
+      try {
+        const { data: profile, error } = await Promise.race([queryPromise, timeoutPromise]);
 
-      if (error) {
-        console.log('Profile query error:', error.message);
-        console.log('Using default user due to error');
+        if (error) {
+          console.log('Profile query error:', error.message);
+          // If it's a "not found" error, create a default profile
+          if (error.code === 'PGRST116') {
+            console.log('Profile not found, creating default user');
+            return createDefaultUser(supabaseUser);
+          }
+          console.log('Using default user due to error');
+          return createDefaultUser(supabaseUser);
+        }
+
+        if (profile) {
+          console.log('Profile found, converting to user object');
+          return {
+            id: profile.id,
+            username: profile.username,
+            email: profile.email,
+            avatar: profile.avatar_url || 'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150',
+            bio: profile.bio || '',
+            githubUrl: profile.github_url || '',
+            linkedinUrl: profile.linkedin_url || '',
+            twitterUrl: profile.twitter_url || '',
+            website: profile.website || '',
+            location: profile.location || '',
+            followers: profile.followers_count || 0,
+            following: profile.following_count || 0,
+            posts: profile.posts_count || 0,
+            joinDate: new Date(profile.created_at).toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'long' 
+            }),
+            verified: false,
+          };
+        }
+
+        console.log('No profile found, using default user');
+        return createDefaultUser(supabaseUser);
+
+      } catch (raceError) {
+        console.error('Profile query race error:', raceError);
+        console.log('Using default user due to race error');
         return createDefaultUser(supabaseUser);
       }
-
-      if (profile) {
-        console.log('Profile found, converting to user object');
-        return {
-          id: profile.id,
-          username: profile.username,
-          email: profile.email,
-          avatar: profile.avatar_url || 'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150',
-          bio: profile.bio || '',
-          githubUrl: profile.github_url || '',
-          linkedinUrl: profile.linkedin_url || '',
-          twitterUrl: profile.twitter_url || '',
-          website: profile.website || '',
-          location: profile.location || '',
-          followers: profile.followers_count || 0,
-          following: profile.following_count || 0,
-          posts: profile.posts_count || 0,
-          joinDate: new Date(profile.created_at).toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'long' 
-          }),
-          verified: false,
-        };
-      }
-
-      console.log('No profile found, using default user');
-      return createDefaultUser(supabaseUser);
 
     } catch (error) {
       console.error('Error in convertSupabaseUser:', error);
