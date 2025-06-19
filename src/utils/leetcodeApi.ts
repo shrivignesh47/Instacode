@@ -1,28 +1,20 @@
 // LeetCode API utility functions
 export interface LeetCodeProfile {
   username: string;
-  profile: {
-    realName: string;
-    websites: string[];
-    countryName: string;
-    company: string | null;
-    school: string | null;
-    aboutMe: string;
-    reputation: number;
-    ranking: number;
-  };
-  submitStats: {
-    acSubmissionNum: Array<{
-      difficulty: string;
-      count: number;
-      submissions: number;
-    }>;
-    totalSubmissionNum: Array<{
-      difficulty: string;
-      count: number;
-      submissions: number;
-    }>;
-  };
+  name: string;
+  birthday: string | null;
+  avatar: string;
+  ranking: number;
+  reputation: number;
+  gitHub: string | null;
+  twitter: string | null;
+  linkedIN: string | null;
+  website: string[];
+  country: string | null;
+  company: string | null;
+  school: string | null;
+  skillTags: string[];
+  about: string;
 }
 
 export interface LeetCodeSubmission {
@@ -31,12 +23,36 @@ export interface LeetCodeSubmission {
   timestamp: string;
   statusDisplay: string;
   lang: string;
-  url: string;
 }
+
+export interface LeetCodeSubmissionsResponse {
+  count: number;
+  submission: LeetCodeSubmission[];
+}
+
+export interface LeetCodeSolvedStats {
+  solvedProblem: number;
+  easySolved: number;
+  mediumSolved: number;
+  hardSolved: number;
+  totalSubmissionNum: Array<{
+    difficulty: string;
+    count: number;
+    submissions: number;
+  }>;
+  acSubmissionNum: Array<{
+    difficulty: string;
+    count: number;
+    submissions: number;
+  }>;
+}
+
+// Base URL for the LeetCode API
+const API_BASE_URL = 'https://alfa-leetcode-api.onrender.com';
 
 export const fetchLeetCodeProfileStats = async (username: string): Promise<LeetCodeProfile> => {
   try {
-    const response = await fetch(`https://leetcode-api-pied.vercel.app/user/${username}`);
+    const response = await fetch(`${API_BASE_URL}/${username}`);
     
     if (!response.ok) {
       const errorMessage = `HTTP ${response.status} ${response.statusText}`;
@@ -71,7 +87,7 @@ export const fetchLeetCodeProfileStats = async (username: string): Promise<LeetC
 
 export const fetchLeetCodeSubmissions = async (username: string, limit: number = 20): Promise<LeetCodeSubmission[]> => {
   try {
-    const response = await fetch(`https://leetcode-api-pied.vercel.app/user/${username}/submissions?limit=${limit}`);
+    const response = await fetch(`${API_BASE_URL}/${username}/submission`);
     
     if (!response.ok) {
       const errorMessage = `HTTP ${response.status} ${response.statusText}`;
@@ -79,8 +95,8 @@ export const fetchLeetCodeSubmissions = async (username: string, limit: number =
       throw new Error(`Failed to fetch LeetCode submissions: ${errorMessage}. Please verify the username "${username}" exists on LeetCode.`);
     }
     
-    const data = await response.json();
-    return data;
+    const data: LeetCodeSubmissionsResponse = await response.json();
+    return data.submission || [];
   } catch (error) {
     console.error('Error fetching LeetCode submissions:', error);
     
@@ -101,6 +117,41 @@ export const fetchLeetCodeSubmissions = async (username: string, limit: number =
     
     // Handle any other unexpected errors
     throw new Error(`Unable to fetch LeetCode submissions for "${username}". Please check the username and try again.`);
+  }
+};
+
+export const fetchLeetCodeSolvedStats = async (username: string): Promise<LeetCodeSolvedStats> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/${username}/solved`);
+    
+    if (!response.ok) {
+      const errorMessage = `HTTP ${response.status} ${response.statusText}`;
+      console.error('LeetCode Solved Stats API Error:', errorMessage);
+      throw new Error(`Failed to fetch LeetCode solved stats: ${errorMessage}. Please verify the username "${username}" exists on LeetCode.`);
+    }
+    
+    const data: LeetCodeSolvedStats = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching LeetCode solved stats:', error);
+    
+    // Handle network-level errors (CORS, network connectivity, etc.)
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error('Network error: Unable to connect to LeetCode API. Please check your internet connection and try again.');
+    }
+    
+    // Handle JSON parsing errors
+    if (error instanceof SyntaxError) {
+      throw new Error('Invalid response from LeetCode API. The service may be temporarily unavailable.');
+    }
+    
+    // Re-throw our custom errors
+    if (error instanceof Error && error.message.includes('Failed to fetch LeetCode solved stats:')) {
+      throw error;
+    }
+    
+    // Handle any other unexpected errors
+    throw new Error(`Unable to fetch LeetCode solved stats for "${username}". Please check the username and try again.`);
   }
 };
 

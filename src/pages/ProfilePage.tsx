@@ -18,7 +18,14 @@ import FollowersModal from '../components/FollowersModal';
 import FollowingModal from '../components/FollowingModal';
 import LeetCodeStats from '../components/LeetCodeStats';
 import { useProfile } from '../hooks/useProfile';
-import { fetchLeetCodeProfileStats, fetchLeetCodeSubmissions, LeetCodeProfile, LeetCodeSubmission } from '../utils/leetcodeApi';
+import { 
+  fetchLeetCodeProfileStats, 
+  fetchLeetCodeSubmissions, 
+  fetchLeetCodeSolvedStats,
+  LeetCodeProfile, 
+  LeetCodeSubmission,
+  LeetCodeSolvedStats
+} from '../utils/leetcodeApi';
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
@@ -54,6 +61,7 @@ const ProfilePage = () => {
     github_url: '',
     linkedin_url: '',
     twitter_url: '',
+    leetcode_username: '',
     avatar_url: ''
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -72,8 +80,9 @@ const ProfilePage = () => {
   const [isFollowingModalOpen, setIsFollowingModalOpen] = useState(false);
 
   // LeetCode integration
-  const [leetcodeStats, setLeetcodeStats] = useState<LeetCodeProfile | null>(null);
+  const [leetcodeProfile, setLeetcodeProfile] = useState<LeetCodeProfile | null>(null);
   const [leetcodeSubmissions, setLeetcodeSubmissions] = useState<LeetCodeSubmission[] | null>(null);
+  const [leetcodeSolvedStats, setLeetcodeSolvedStats] = useState<LeetCodeSolvedStats | null>(null);
   const [leetcodeLoading, setLeetcodeLoading] = useState(false);
   const [leetcodeError, setLeetcodeError] = useState<string | null>(null);
 
@@ -93,6 +102,7 @@ const ProfilePage = () => {
         github_url: profile.github_url || '',
         linkedin_url: profile.linkedin_url || '',
         twitter_url: profile.twitter_url || '',
+        leetcode_username: profile.leetcode_username || '',
         avatar_url: profile.avatar_url || ''
       });
 
@@ -101,8 +111,9 @@ const ProfilePage = () => {
         fetchLeetCodeData(profile.leetcode_username);
       } else {
         // Reset LeetCode data if no username
-        setLeetcodeStats(null);
+        setLeetcodeProfile(null);
         setLeetcodeSubmissions(null);
+        setLeetcodeSolvedStats(null);
         setLeetcodeError(null);
       }
     }
@@ -113,14 +124,16 @@ const ProfilePage = () => {
     setLeetcodeError(null);
 
     try {
-      // Fetch both profile stats and submissions in parallel
-      const [stats, submissions] = await Promise.all([
+      // Fetch profile, submissions, and solved stats in parallel
+      const [profile, submissions, solvedStats] = await Promise.all([
         fetchLeetCodeProfileStats(leetcodeUsername),
-        fetchLeetCodeSubmissions(leetcodeUsername)
+        fetchLeetCodeSubmissions(leetcodeUsername),
+        fetchLeetCodeSolvedStats(leetcodeUsername)
       ]);
 
-      setLeetcodeStats(stats);
+      setLeetcodeProfile(profile);
       setLeetcodeSubmissions(submissions);
+      setLeetcodeSolvedStats(solvedStats);
     } catch (error) {
       console.error('Error fetching LeetCode data:', error);
       setLeetcodeError(error instanceof Error ? error.message : 'Failed to fetch LeetCode data');
@@ -193,6 +206,18 @@ const ProfilePage = () => {
         ...updatedProfileData,
       });
       setEditProfile(false);
+      
+      // If LeetCode username was updated, fetch new data
+      if (updatedProfileData.leetcode_username !== profile.leetcode_username) {
+        if (updatedProfileData.leetcode_username) {
+          fetchLeetCodeData(updatedProfileData.leetcode_username);
+        } else {
+          setLeetcodeProfile(null);
+          setLeetcodeSubmissions(null);
+          setLeetcodeSolvedStats(null);
+          setLeetcodeError(null);
+        }
+      }
     } catch (err: any) {
       setSaveError(err.message || 'Failed to update profile.');
     } finally {
@@ -286,8 +311,9 @@ const ProfilePage = () => {
         {/* LeetCode Stats Section */}
         {profile.leetcode_username ? (
           <LeetCodeStats
-            leetcodeStats={leetcodeStats}
+            leetcodeProfile={leetcodeProfile}
             leetcodeSubmissions={leetcodeSubmissions}
+            leetcodeSolvedStats={leetcodeSolvedStats}
             loading={leetcodeLoading}
             error={leetcodeError}
             username={profile.leetcode_username}
