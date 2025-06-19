@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
@@ -52,7 +51,9 @@ const MessagesPage = () => {
   // Handle direct navigation to a specific user's chat
   useEffect(() => {
     const initializeDirectChat = async () => {
-      if (!initialUserParam || !user || loading || conversations.length === 0) return;
+      if (!initialUserParam || !user || loading) return;
+      
+      console.log('Initializing direct chat with user:', initialUserParam);
       
       try {
         // Find the user profile by username
@@ -67,15 +68,18 @@ const MessagesPage = () => {
           return;
         }
         
+        console.log('Found user profile:', profileData);
+        
         // Check if conversation already exists
         const existingConversation = conversations.find(conv => 
           conv.other_user.id === profileData.id
         );
         
         if (existingConversation) {
-          // Use existing conversation
+          console.log('Using existing conversation:', existingConversation.id);
           handleConversationSelect(existingConversation);
         } else {
+          console.log('Creating new conversation');
           // Create new conversation
           const { data: conversationId, error } = await supabase
             .rpc('get_or_create_conversation', {
@@ -88,14 +92,19 @@ const MessagesPage = () => {
             return;
           }
           
+          console.log('Created conversation with ID:', conversationId);
+          
           // Reload conversations to get the new one
           await loadConversations();
           
-          // Find and select the new conversation
-          const newConversation = conversations.find(conv => conv.id === conversationId);
-          if (newConversation) {
-            handleConversationSelect(newConversation);
-          }
+          // Find and select the new conversation after reload
+          setTimeout(() => {
+            const newConversation = conversations.find(conv => conv.id === conversationId);
+            if (newConversation) {
+              console.log('Selecting new conversation');
+              handleConversationSelect(newConversation);
+            }
+          }, 500);
         }
         
         // Clear the initial user param to prevent reprocessing
@@ -109,9 +118,10 @@ const MessagesPage = () => {
     };
     
     initializeDirectChat();
-  }, [initialUserParam, user, loading, conversations, navigate]);
+  }, [initialUserParam, user, loading, conversations, navigate, loadConversations]);
 
   const handleConversationSelect = (conversation: Conversation) => {
+    console.log('Selecting conversation:', conversation.id);
     setSelectedConversation(conversation);
     setShowChatList(false);
     // Clear previous messages and load new ones
@@ -120,6 +130,7 @@ const MessagesPage = () => {
   };
 
   const handleBackToList = () => {
+    console.log('Going back to conversation list');
     setSelectedConversation(null);
     setShowChatList(true);
     setMessages([]);
@@ -130,6 +141,8 @@ const MessagesPage = () => {
 
     const userToStart = Array.isArray(selectedUser) ? selectedUser[0] : selectedUser;
     if (!userToStart) return;
+
+    console.log('Starting conversation with user:', userToStart.username);
 
     try {
       const { data: conversationId, error } = await supabase
@@ -143,9 +156,12 @@ const MessagesPage = () => {
         return;
       }
 
+      console.log('Got conversation ID:', conversationId);
+
       let conversation = conversations.find(c => c.id === conversationId);
       
       if (!conversation) {
+        console.log('Creating new conversation object');
         conversation = {
           id: conversationId,
           participant_1: user.id,
@@ -173,6 +189,7 @@ const MessagesPage = () => {
     if (!selectedConversation) return;
     
     try {
+      console.log('Handling message sent:', message.content);
       await sendMessage(message.content);
       await loadConversations(); // Refresh conversation list
     } catch (error) {

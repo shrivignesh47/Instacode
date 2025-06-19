@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -38,11 +37,16 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
 
     newChannel
       .on('broadcast', { event: EVENT_MESSAGE_TYPE }, (payload) => {
+        console.log('Received real-time message:', payload);
         const newMessage = payload.payload as RealtimeChatMessage;
         setMessages((current) => {
           // Check if message already exists to prevent duplicates
           const exists = current.find(msg => msg.id === newMessage.id);
-          if (exists) return current;
+          if (exists) {
+            console.log('Message already exists, skipping duplicate');
+            return current;
+          }
+          console.log('Adding new message to UI');
           return [...current, newMessage];
         });
       })
@@ -62,9 +66,19 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!channel || !isConnected || !user || !conversationId) return;
+      if (!channel || !isConnected || !user || !conversationId) {
+        console.warn('Cannot send message - missing requirements:', {
+          hasChannel: !!channel,
+          isConnected,
+          hasUser: !!user,
+          hasConversationId: !!conversationId
+        });
+        return;
+      }
 
       try {
+        console.log('Sending message:', { content, conversationId, userId: user.id });
+
         // Insert message into database
         const { data, error } = await supabase
           .from('messages')
@@ -86,9 +100,11 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
           .single();
 
         if (error) {
-          console.error('Error sending message:', error);
+          console.error('Error sending message to database:', error);
           return;
         }
+
+        console.log('Message saved to database:', data);
 
         // Create realtime message object
         const realtimeMessage: RealtimeChatMessage = {
@@ -109,16 +125,22 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
         // Add to local state immediately for the sender
         setMessages((current) => {
           const exists = current.find(msg => msg.id === realtimeMessage.id);
-          if (exists) return current;
+          if (exists) {
+            console.log('Message already in local state');
+            return current;
+          }
+          console.log('Adding message to local state');
           return [...current, realtimeMessage];
         });
 
         // Broadcast to other users
-        await channel.send({
+        const broadcastResult = await channel.send({
           type: 'broadcast',
           event: EVENT_MESSAGE_TYPE,
           payload: realtimeMessage,
         });
+
+        console.log('Broadcast result:', broadcastResult);
 
       } catch (error) {
         console.error('Error in sendMessage:', error);
@@ -128,9 +150,15 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
   );
 
   const loadMessages = useCallback(async () => {
-    if (!conversationId) return;
+    if (!conversationId) {
+      console.warn('Cannot load messages - no conversation ID');
+      return;
+    }
 
     try {
+      console.log('Loading messages for conversation:', conversationId);
+
+      // Enhanced query with better error handling and ordering
       const { data, error } = await supabase
         .from('messages')
         .select(`
@@ -151,8 +179,18 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
         return;
       }
 
+      console.log('Raw messages data:', data);
+
+      if (!data) {
+        console.log('No messages found for conversation');
+        setMessages([]);
+        return;
+      }
+
       const formattedMessages: RealtimeChatMessage[] = data.map(msg => {
+        // Handle both array and object responses from Supabase
         const senderProfile = Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles;
+        
         return {
           id: msg.id,
           conversation_id: msg.conversation_id,
@@ -163,15 +201,16 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
           created_at: msg.created_at,
           is_read: false,
           sender: {
-            username: senderProfile?.username || 'Unknown',
+            username: senderProfile?.username || 'Unknown User',
             avatar_url: senderProfile?.avatar_url || ''
           }
         };
       });
 
+      console.log('Formatted messages:', formattedMessages);
       setMessages(formattedMessages);
     } catch (error) {
-      console.error('Error loading messages:', error);
+      console.error('Exception in loadMessages:', error);
     }
   }, [conversationId]);
 

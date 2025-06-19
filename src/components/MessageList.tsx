@@ -44,8 +44,20 @@ const MessageList = ({ messages }: MessageListProps) => {
   };
 
   const renderMessage = (message: Message) => {
-    // Only determine message ownership when auth is fully loaded and user exists
-    const isOwnMessage = !authLoading && user && user.id === message.sender_id;
+    // Enhanced check for message ownership - ensure user.id exists before comparison
+    const isOwnMessage = !authLoading && user?.id && user.id === message.sender_id;
+    
+    // Debug logging to help identify attribution issues
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Message attribution debug:', {
+        messageId: message.id,
+        senderId: message.sender_id,
+        currentUserId: user?.id,
+        isOwnMessage,
+        authLoading,
+        userExists: !!user
+      });
+    }
     
     return (
       <div
@@ -92,6 +104,24 @@ const MessageList = ({ messages }: MessageListProps) => {
             <div className="text-center">
               <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
               <p className="text-gray-400 text-sm">Loading messages...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if user is not available after loading
+  if (!authLoading && !user) {
+    return (
+      <div className="h-full flex flex-col">
+        <div
+          ref={containerRef}
+          className="flex-1 overflow-y-auto py-2 lg:py-4"
+        >
+          <div className="flex items-center justify-center h-full px-4">
+            <div className="text-center">
+              <p className="text-red-400 text-sm">Authentication error. Please refresh the page.</p>
             </div>
           </div>
         </div>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,9 +27,15 @@ export const useConversations = () => {
   const [loading, setLoading] = useState(true);
 
   const loadConversations = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     try {
+      console.log('Loading conversations for user:', user.id);
+      
+      // Enhanced query to get all conversations with better error handling
       const { data, error } = await supabase
         .from('conversations')
         .select(`
@@ -39,46 +44,73 @@ export const useConversations = () => {
           participant_2,
           last_message_at,
           last_message_id,
+          created_at,
+          updated_at,
           profiles!conversations_participant_1_fkey(id, username, avatar_url, bio),
           profiles_participant_2:profiles!conversations_participant_2_fkey(id, username, avatar_url, bio)
         `)
         .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`)
-        .order('last_message_at', { ascending: false });
+        .order('last_message_at', { ascending: false, nullsFirst: false });
 
       if (error) {
         console.error('Error loading conversations:', error);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Raw conversations data:', data);
+
+      if (!data || data.length === 0) {
+        console.log('No conversations found');
+        setConversations([]);
+        setLoading(false);
         return;
       }
 
       const formattedConversations: Conversation[] = [];
 
       for (const conv of data) {
+        // Determine which profile is the other user
         const otherUser = conv.participant_1 === user.id 
           ? conv.profiles_participant_2 
           : conv.profiles;
         
+        // Handle both array and object responses from Supabase
         const otherUserObj = Array.isArray(otherUser) ? otherUser[0] : otherUser;
-        if (!otherUserObj) continue;
+        
+        if (!otherUserObj) {
+          console.warn('Missing other user profile for conversation:', conv.id);
+          continue;
+        }
 
         // Get last message if exists
         let lastMessage = undefined;
         if (conv.last_message_id) {
-          const { data: messageData } = await supabase
-            .from('messages')
-            .select('content, message_type, sender_id')
-            .eq('id', conv.last_message_id)
-            .single();
-          
-          if (messageData) {
-            lastMessage = messageData;
+          try {
+            const { data: messageData, error: messageError } = await supabase
+              .from('messages')
+              .select('content, message_type, sender_id')
+              .eq('id', conv.last_message_id)
+              .single();
+            
+            if (messageError) {
+              console.warn('Error fetching last message:', messageError);
+            } else if (messageData) {
+              lastMessage = messageData;
+            }
+          } catch (msgError) {
+            console.warn('Exception fetching last message:', msgError);
           }
         }
 
-        formattedConversations.push({
+        // Use last_message_at if available, otherwise fall back to created_at or current time
+        const messageTime = conv.last_message_at || conv.created_at || new Date().toISOString();
+
+        const formattedConversation: Conversation = {
           id: conv.id,
           participant_1: conv.participant_1,
           participant_2: conv.participant_2,
-          last_message_at: conv.last_message_at || new Date().toISOString(),
+          last_message_at: messageTime,
           other_user: {
             id: otherUserObj.id,
             username: otherUserObj.username,
@@ -86,13 +118,22 @@ export const useConversations = () => {
             bio: otherUserObj.bio || ''
           },
           last_message: lastMessage,
-          unread_count: 0
-        });
+          unread_count: 0 // TODO: Implement unread count logic
+        };
+
+        formattedConversations.push(formattedConversation);
       }
+
+      console.log('Formatted conversations:', formattedConversations);
+      
+      // Sort conversations by last_message_at in descending order (most recent first)
+      formattedConversations.sort((a, b) => 
+        new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+      );
 
       setConversations(formattedConversations);
     } catch (error) {
-      console.error('Error loading conversations:', error);
+      console.error('Exception in loadConversations:', error);
     } finally {
       setLoading(false);
     }
@@ -101,6 +142,48 @@ export const useConversations = () => {
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
+
+  // Set up real-time subscription for conversation updates
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time subscription for conversations');
+
+    const channel = supabase
+      .channel('conversations_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+          filter: `participant_1=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Conversation change (participant_1):', payload);
+          loadConversations();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+          filter: `participant_2=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Conversation change (participant_2):', payload);
+          loadConversations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up conversations subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [user, loadConversations]);
 
   return { conversations, loading, loadConversations };
 };
