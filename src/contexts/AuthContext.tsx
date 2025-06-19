@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
@@ -76,9 +75,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Converting Supabase user:', supabaseUser.id);
     
     try {
-      // Set a timeout for the query
+      // Set a timeout for the query - increased from 5000ms to 10000ms
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile query timeout')), 5000)
+        setTimeout(() => reject(new Error('Profile query timeout')), 10000)
       );
 
       const queryPromise = supabase
