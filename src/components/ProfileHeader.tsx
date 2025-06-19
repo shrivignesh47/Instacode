@@ -1,5 +1,4 @@
 import { Check, Edit, MapPin, Globe, Github, Linkedin, Twitter, Calendar, Loader2, MessageCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 interface ProfileHeaderProps {
   profile: any;
@@ -26,8 +25,6 @@ const ProfileHeader = ({
   onFollowingClick,
   onMessageClick
 }: ProfileHeaderProps) => {
-  const navigate = useNavigate();
-
   return (
     <div className="bg-gray-800 rounded-xl p-8 mb-6">
       <div className="flex flex-col md:flex-row items-start md:items-center gap-6">

@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
@@ -8,8 +9,7 @@ import ForumQuickAccess from '../components/ForumQuickAccess';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { useConversations, type Conversation } from '../hooks/useConversations';
-import { useMessages, type Message } from '../hooks/useMessages';
-import { useRealTimeMessages } from '../hooks/useRealTimeMessages';
+import { useRealtimeChat } from '../hooks/useRealtimeChat';
 
 const MessagesPage = () => {
   const { user } = useAuth();
@@ -18,11 +18,26 @@ const MessagesPage = () => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showChatList, setShowChatList] = useState(true);
   const [showUserSearch, setShowUserSearch] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [initialUserParam, setInitialUserParam] = useState<string | null>(null);
 
   const { conversations, loading, loadConversations } = useConversations();
-  const { messages, loadMessages, addMessage, updateMessage, setMessages } = useMessages();
+  
+  // Use realtime chat for the selected conversation
+  const { 
+    messages: realtimeMessages, 
+    sendMessage, 
+    isConnected, 
+    loadMessages,
+    setMessages
+  } = useRealtimeChat({
+    conversationId: selectedConversation?.id || ''
+  });
+
+  // Convert RealtimeChatMessage[] to Message[] with proper is_read handling
+  const convertedMessages = realtimeMessages.map(msg => ({
+    ...msg,
+    is_read: msg.is_read ?? false // Ensure is_read is always boolean
+  }));
 
   // Parse URL query parameters for direct navigation to a specific user's chat
   useEffect(() => {
@@ -96,112 +111,12 @@ const MessagesPage = () => {
     initializeDirectChat();
   }, [initialUserParam, user, loading, conversations, navigate]);
 
-  // Handle manual refresh of messages (but don't show UI indicator)
-  const handleRefreshMessages = useCallback(async () => {
-    if (!selectedConversation) return;
-    
-    setIsRefreshing(true);
-    try {
-      await loadMessages(selectedConversation.id);
-      await loadConversations();
-    } catch (error) {
-      console.error('Error refreshing messages:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [selectedConversation, loadMessages, loadConversations]);
-
-  // Background auto-refresh
-  useEffect(() => {
-    if (!selectedConversation) return;
-
-    const autoRefreshInterval = setInterval(() => {
-      if (!isRefreshing) {
-        handleRefreshMessages();
-      }
-    }, 10000); // Every 10 seconds
-
-    return () => clearInterval(autoRefreshInterval);
-  }, [selectedConversation, handleRefreshMessages, isRefreshing]);
-
-  // Handle real-time message updates
-  const handleNewMessage = useCallback(async (newMessage: any) => {
-    console.log('Processing new message:', newMessage);
-    
-    const userConversations = conversations.filter(conv => 
-      conv.participant_1 === user?.id || conv.participant_2 === user?.id
-    );
-    
-    const relevantConversation = userConversations.find(conv => 
-      conv.id === newMessage.conversation_id
-    );
-    
-    if (!relevantConversation) {
-      console.log('Message not for user conversations, ignoring');
-      return;
-    }
-    
-    if (selectedConversation && newMessage.conversation_id === selectedConversation.id) {
-      const { data: messageData, error } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          conversation_id,
-          sender_id,
-          content,
-          message_type,
-          shared_post_id,
-          file_url,
-          is_read,
-          created_at,
-          profiles:profiles!messages_sender_id_fkey(username, avatar_url)
-        `)
-        .eq('id', newMessage.id)
-        .single();
-
-      if (!error && messageData) {
-        const senderProfile = Array.isArray(messageData.profiles) ? messageData.profiles[0] : messageData.profiles;
-        const formattedMessage: Message = {
-          id: messageData.id,
-          conversation_id: messageData.conversation_id,
-          sender_id: messageData.sender_id,
-          content: messageData.content,
-          message_type: messageData.message_type,
-          shared_post_id: messageData.shared_post_id,
-          file_url: messageData.file_url,
-          is_read: messageData.is_read,
-          created_at: messageData.created_at,
-          sender: {
-            username: senderProfile?.username || 'Unknown',
-            avatar_url: senderProfile?.avatar_url || ''
-          }
-        };
-
-        addMessage(formattedMessage);
-      }
-    }
-    
-    await loadConversations();
-  }, [conversations, selectedConversation, user, addMessage, loadConversations]);
-
-  const handleMessageUpdate = useCallback((updatedMessage: any) => {
-    console.log('Processing message update:', updatedMessage);
-    
-    if (selectedConversation && updatedMessage.conversation_id === selectedConversation.id) {
-      updateMessage(updatedMessage);
-    }
-  }, [selectedConversation, updateMessage]);
-
-  useRealTimeMessages({
-    onNewMessage: handleNewMessage,
-    onMessageUpdate: handleMessageUpdate,
-    onConversationUpdate: loadConversations
-  });
-
   const handleConversationSelect = (conversation: Conversation) => {
     setSelectedConversation(conversation);
     setShowChatList(false);
-    loadMessages(conversation.id);
+    // Clear previous messages and load new ones
+    setMessages([]);
+    loadMessages();
   };
 
   const handleBackToList = () => {
@@ -254,9 +169,16 @@ const MessagesPage = () => {
     }
   };
 
-  const handleMessageSent = (message: Message) => {
-    addMessage(message);
-  };
+  const handleMessageSent = useCallback(async (message: any) => {
+    if (!selectedConversation) return;
+    
+    try {
+      await sendMessage(message.content);
+      await loadConversations(); // Refresh conversation list
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  }, [selectedConversation, sendMessage, loadConversations]);
 
   if (loading) {
     return (
@@ -273,31 +195,37 @@ const MessagesPage = () => {
 
   return (
     <Layout>
-      <div className="h-full bg-gray-900 flex flex-1 overflow-hidden">
-        {/* Conversation List */}
-        <div className={`${showChatList ? 'flex w-full' : 'hidden'} lg:flex lg:w-80 xl:w-96 flex-shrink-0`}>
-          <div className="flex flex-col w-full flex-1">
-            <ForumQuickAccess />
-            <ConversationList
-              conversations={conversations}
-              selectedConversation={selectedConversation}
-              onConversationSelect={handleConversationSelect}
-              onStartNewConversation={() => setShowUserSearch(true)}
-              loading={loading}
-            />
+      <div className="h-screen bg-gray-900 flex overflow-hidden">
+        {/* Conversation List - Fixed width with its own scroll */}
+        <div className={`${showChatList ? 'flex w-full' : 'hidden'} lg:flex lg:w-80 xl:w-96 flex-shrink-0 bg-gray-900 border-r border-gray-700`}>
+          <div className="flex flex-col w-full h-full">
+            {/* Forum Quick Access - Fixed at top */}
+            <div className="flex-shrink-0">
+              <ForumQuickAccess />
+            </div>
+            
+            {/* Conversation List - Scrollable */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ConversationList
+                conversations={conversations}
+                selectedConversation={selectedConversation}
+                onConversationSelect={handleConversationSelect}
+                onStartNewConversation={() => setShowUserSearch(true)}
+                loading={loading}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Chat Area */}
+        {/* Chat Area - Takes remaining space */}
         <div className={`${!showChatList ? 'flex w-full' : 'hidden'} lg:flex lg:flex-1 min-w-0`}>
           <ChatArea
             selectedConversation={selectedConversation}
-            messages={messages}
+            messages={convertedMessages}
             onBackToList={handleBackToList}
             onStartNewConversation={() => setShowUserSearch(true)}
             onMessageSent={handleMessageSent}
-            onRefreshMessages={handleRefreshMessages}
-            isRefreshing={false} // Always pass false to hide the refreshing indicator
+            isConnected={isConnected}
           />
         </div>
       </div>

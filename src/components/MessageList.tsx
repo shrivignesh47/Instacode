@@ -1,101 +1,36 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Check, CheckCheck, Code, Image, Video, ExternalLink } from 'lucide-react';
-import { Message } from '../hooks/useMessages';
+
+import { useEffect } from 'react';
+import { Check, CheckCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase, PostWithUser } from '../lib/supabaseClient';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useChatScroll } from '../hooks/useChatScroll';
+
+interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  message_type: 'text' | 'post_share' | 'image' | 'file';
+  shared_post_id?: string;
+  created_at: string;
+  is_read?: boolean;
+  sender: {
+    username: string;
+    avatar_url: string;
+  };
+}
 
 interface MessageListProps {
   messages: Message[];
-  isRefreshing?: boolean;
 }
 
-const MessageList = ({ messages, isRefreshing = false }: MessageListProps) => {
+const MessageList = ({ messages }: MessageListProps) => {
   const { user } = useAuth();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [sharedPosts, setSharedPosts] = useState<{ [key: string]: PostWithUser }>({});
-  const lastConversationIdRef = useRef<string | null>(null);
-  const [userScrolledUp, setUserScrolledUp] = useState(false);
+  const { containerRef, scrollToBottom } = useChatScroll();
 
-  // Handle scroll detection
-  const handleScroll = () => {
-    const container = scrollContainerRef.current;
-    if (container) {
-      const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-      setUserScrolledUp(!isAtBottom);
-    }
-  };
-
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
-    }
-  }, []);
-
-  useEffect(() => {
-    const newConversationId = messages.length > 0 ? messages[0].conversation_id : null;
-
-    const scrollToBottom = (behavior: 'auto' | 'smooth' = 'auto') => {
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior });
-      }, 100);
-    };
-
-    if (newConversationId && newConversationId !== lastConversationIdRef.current) {
-      // New conversation, scroll to bottom immediately and reset scroll state
-      scrollToBottom('auto');
-      setUserScrolledUp(false);
-      lastConversationIdRef.current = newConversationId;
-    } else if (!userScrolledUp) {
-      // Same conversation and user hasn't scrolled up, scroll smoothly
-      scrollToBottom('smooth');
-    }
-  }, [messages, userScrolledUp]);
-
-  // Fetch shared posts
-  useEffect(() => {
-    const fetchSharedPosts = async () => {
-      const postShareMessages = messages.filter(
-        msg => msg.message_type === 'post_share' && msg.shared_post_id && !sharedPosts[msg.shared_post_id]
-      );
-
-      if (postShareMessages.length === 0) return;
-
-      const postIds = [...new Set(postShareMessages.map(msg => msg.shared_post_id))];
-
-      try {
-        const { data: posts, error } = await supabase
-          .from('posts')
-          .select(`
-            *,
-            profiles (
-              id,
-              username,
-              avatar_url
-            )
-          `)
-          .in('id', postIds);
-
-        if (!error && posts) {
-          const postsMap = posts.reduce((acc, post) => {
-            acc[post.id] = post as PostWithUser;
-            return acc;
-          }, {} as { [key: string]: PostWithUser });
-
-          setSharedPosts(prev => ({ ...prev, ...postsMap }));
-        }
-      } catch (error) {
-        console.error('Error fetching shared posts:', error);
-      }
-    };
-
-    fetchSharedPosts();
-  }, [messages, sharedPosts]);
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -109,120 +44,31 @@ const MessageList = ({ messages, isRefreshing = false }: MessageListProps) => {
     }
   };
 
-  const renderSharedPost = (post: PostWithUser) => {
-    const getPostIcon = () => {
-      switch (post.type) {
-        case 'code':
-          return <Code className="w-4 h-4 text-blue-400" />;
-        case 'image':
-          return <Image className="w-4 h-4 text-green-400" />;
-        case 'video':
-          return <Video className="w-4 h-4 text-red-400" />;
-        case 'project':
-          return <ExternalLink className="w-4 h-4 text-purple-400" />;
-        default:
-          return null;
-      }
-    };
-
-    return (
-      <Link to={`/post/${post.id}`} className="block cursor-pointer">
-        <div className="mt-2 border border-white/10 rounded-lg p-3 bg-black/20 hover:bg-black/30 transition-colors">
-          <div className="flex items-center space-x-2 mb-2">
-            <img
-              src={post.profiles.avatar_url || 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=50'}
-              alt={post.profiles.username}
-              className="w-5 h-5 rounded-full object-cover"
-            />
-            <span className="text-gray-300 text-sm font-medium">{post.profiles.username}</span>
-            <div className="flex items-center space-x-1">
-              {getPostIcon()}
-              <span className="text-gray-400 text-xs capitalize">{post.type}</span>
-            </div>
-          </div>
-          
-          {post.project_title && (
-            <h4 className="text-white text-base font-semibold mb-1">{post.project_title}</h4>
-          )}
-          
-          {post.type === 'project' && post.project_description ? (
-            <p className="text-gray-300 text-sm line-clamp-3">{post.project_description}</p>
-          ) : (
-            <p className="text-gray-300 text-sm line-clamp-3">{post.content}</p>
-          )}
-          
-          {post.media_url && (post.type === 'image' || post.type === 'project') && (
-            <img
-              src={post.media_url}
-              alt="Shared content"
-              className="mt-2 rounded-lg max-w-full h-auto max-h-48 object-cover"
-            />
-          )}
-          
-          {post.media_url && post.type === 'video' && (
-            <video
-              src={post.media_url}
-              controls
-              className="mt-2 rounded-lg max-w-full h-auto max-h-48"
-            >
-              Your browser does not support the video tag.
-            </video>
-          )}
-          
-          {post.type === 'code' && post.code_content && post.code_language && (
-            <div className="mt-2 bg-gray-900 rounded-md overflow-hidden max-h-48">
-              <SyntaxHighlighter
-                language={post.code_language}
-                style={oneDark}
-                customStyle={{ 
-                  margin: 0, 
-                  padding: '0.75rem', 
-                  background: 'transparent',
-                  fontSize: '0.8rem' 
-                }}
-                showLineNumbers={false}
-              >
-                {post.code_content.slice(0, 500) + (post.code_content.length > 500 ? '\n...' : '')}
-              </SyntaxHighlighter>
-            </div>
-          )}
-          
-          <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-            <span>{post.likes_count} likes • {post.comments_count} comments</span>
-            <span>{formatTime(post.created_at)}</span>
-          </div>
-        </div>
-      </Link>
-    );
-  };
-
   const renderMessage = (message: Message) => {
     const isOwnMessage = message.sender_id === user?.id;
-    const sharedPost = message.shared_post_id ? sharedPosts[message.shared_post_id] : null;
     
     return (
       <div
         key={message.id}
-        className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-3 lg:mb-4 px-2 lg:px-0`}
+        className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-3 lg:mb-4 px-3 lg:px-4`}
       >
-        <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md ${isOwnMessage ? 'order-2' : 'order-1'}`}>
+        <div className={`max-w-[85%] lg:max-w-[75%] ${isOwnMessage ? 'order-2' : 'order-1'}`}>
           <div className={`px-3 lg:px-4 py-2 lg:py-3 rounded-2xl ${
             isOwnMessage
-              ? 'bg-purple-600 text-white rounded-br-md'
-              : 'bg-gray-700 text-gray-100 rounded-bl-md'
+              ? 'bg-purple-600 text-white rounded-br-sm'
+              : 'bg-gray-800 text-gray-100 rounded-bl-sm'
           }`}>
-            <p className="text-sm break-words">{message.content}</p>
-            {sharedPost && renderSharedPost(sharedPost)}
+            <p className="text-sm lg:text-base break-words leading-relaxed">{message.content}</p>
           </div>
           
-          <div className={`flex items-center mt-1 space-x-1 px-1 ${
+          <div className={`flex items-center mt-1 lg:mt-2 space-x-1 px-2 ${
             isOwnMessage ? 'justify-end' : 'justify-start'
           }`}>
             <span className="text-xs text-gray-500">{formatTime(message.created_at)}</span>
             {isOwnMessage && (
-              <div className="text-gray-500">
+              <div className="text-gray-500 ml-1">
                 {message.is_read ? (
-                  <CheckCheck className="w-3 h-3 text-blue-400" />
+                  <CheckCheck className="w-3 h-3 text-purple-400" />
                 ) : (
                   <Check className="w-3 h-3" />
                 )}
@@ -235,26 +81,26 @@ const MessageList = ({ messages, isRefreshing = false }: MessageListProps) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col relative">
+    <div className="h-full flex flex-col">
       <div
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto py-2 lg:py-4 min-h-0"
+        ref={containerRef}
+        className="flex-1 overflow-y-auto py-2 lg:py-4"
         style={{
           scrollbarWidth: 'thin',
-          scrollbarColor: '#374151 #1f2937'
+          scrollbarColor: '#374151 transparent'
         }}
       >
         <style>
           {`
             .flex-1::-webkit-scrollbar {
-              width: 6px;
+              width: 3px;
             }
             .flex-1::-webkit-scrollbar-track {
-              background: #1f2937;
+              background: transparent;
             }
             .flex-1::-webkit-scrollbar-thumb {
               background: #374151;
-              border-radius: 3px;
+              border-radius: 2px;
             }
             .flex-1::-webkit-scrollbar-thumb:hover {
               background: #4b5563;
@@ -265,18 +111,15 @@ const MessageList = ({ messages, isRefreshing = false }: MessageListProps) => {
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full px-4">
             <div className="text-center">
-              <div className="w-12 h-12 lg:w-16 lg:h-16 text-gray-600 mx-auto mb-3 lg:mb-4 text-2xl lg:text-4xl">💬</div>
-              <h3 className="text-lg lg:text-xl font-semibold text-white mb-2">Start the conversation</h3>
+              <div className="w-12 lg:w-16 h-12 lg:h-16 text-gray-600 mx-auto mb-3 lg:mb-4 text-3xl lg:text-4xl">💬</div>
+              <h3 className="text-lg lg:text-xl font-semibold text-white mb-1 lg:mb-2">Start the conversation</h3>
               <p className="text-gray-400 text-sm lg:text-base">Send a message to get started</p>
             </div>
           </div>
         ) : (
-          <>
-            <div className="px-2 lg:px-6">
-              {messages.map(renderMessage)}
-            </div>
-            <div ref={messagesEndRef} />
-          </>
+          <div className="space-y-1">
+            {messages.map(renderMessage)}
+          </div>
         )}
       </div>
     </div>
