@@ -29,6 +29,85 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
   const [channel, setChannel] = useState<ReturnType<typeof supabase.channel> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
+  const loadMessages = useCallback(async () => {
+    if (!conversationId) {
+      console.warn('Cannot load messages - no conversation ID');
+      return;
+    }
+
+    try {
+      console.log('Loading messages for conversation:', conversationId);
+
+      // Enhanced query with better error handling and ordering
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          conversation_id,
+          sender_id,
+          content,
+          message_type,
+          shared_post_id,
+          created_at,
+          profiles:profiles!messages_sender_id_fkey(username, avatar_url)
+        `)
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error loading messages:', error);
+        return;
+      }
+
+      console.log('Raw messages data:', data);
+
+      if (!data) {
+        console.log('No messages found for conversation');
+        setMessages([]);
+        return;
+      }
+
+      const formattedMessages: RealtimeChatMessage[] = data.map(msg => {
+        // Handle both array and object responses from Supabase
+        const senderProfile = Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles;
+        
+        return {
+          id: msg.id,
+          conversation_id: msg.conversation_id,
+          sender_id: msg.sender_id,
+          content: msg.content,
+          message_type: msg.message_type,
+          shared_post_id: msg.shared_post_id,
+          created_at: msg.created_at,
+          is_read: false,
+          sender: {
+            username: senderProfile?.username || 'Unknown User',
+            avatar_url: senderProfile?.avatar_url || ''
+          }
+        };
+      });
+
+      console.log('Formatted messages:', formattedMessages);
+      setMessages(formattedMessages);
+    } catch (error) {
+      console.error('Exception in loadMessages:', error);
+    }
+  }, [conversationId]);
+
+  // Auto-load messages when conversationId changes
+  useEffect(() => {
+    if (conversationId && user) {
+      console.log('Auto-loading messages for conversation:', conversationId);
+      // Clear existing messages first
+      setMessages([]);
+      // Load messages for the new conversation
+      loadMessages();
+    } else {
+      // Clear messages if no conversation is selected
+      setMessages([]);
+    }
+  }, [conversationId, user, loadMessages]);
+
   useEffect(() => {
     if (!conversationId || !user) return;
 
@@ -148,71 +227,6 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
     },
     [channel, isConnected, user, conversationId]
   );
-
-  const loadMessages = useCallback(async () => {
-    if (!conversationId) {
-      console.warn('Cannot load messages - no conversation ID');
-      return;
-    }
-
-    try {
-      console.log('Loading messages for conversation:', conversationId);
-
-      // Enhanced query with better error handling and ordering
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          conversation_id,
-          sender_id,
-          content,
-          message_type,
-          shared_post_id,
-          created_at,
-          profiles:profiles!messages_sender_id_fkey(username, avatar_url)
-        `)
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error loading messages:', error);
-        return;
-      }
-
-      console.log('Raw messages data:', data);
-
-      if (!data) {
-        console.log('No messages found for conversation');
-        setMessages([]);
-        return;
-      }
-
-      const formattedMessages: RealtimeChatMessage[] = data.map(msg => {
-        // Handle both array and object responses from Supabase
-        const senderProfile = Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles;
-        
-        return {
-          id: msg.id,
-          conversation_id: msg.conversation_id,
-          sender_id: msg.sender_id,
-          content: msg.content,
-          message_type: msg.message_type,
-          shared_post_id: msg.shared_post_id,
-          created_at: msg.created_at,
-          is_read: false,
-          sender: {
-            username: senderProfile?.username || 'Unknown User',
-            avatar_url: senderProfile?.avatar_url || ''
-          }
-        };
-      });
-
-      console.log('Formatted messages:', formattedMessages);
-      setMessages(formattedMessages);
-    } catch (error) {
-      console.error('Exception in loadMessages:', error);
-    }
-  }, [conversationId]);
 
   return { 
     messages, 
