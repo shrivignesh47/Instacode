@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, Code } from 'lucide-react';
 import FileUpload from './FileUpload';
 import { uploadFile, validateImageFile } from '../utils/fileUpload';
 
@@ -13,6 +13,7 @@ interface EditProfileModalProps {
     github_url: string;
     linkedin_url: string;
     twitter_url: string;
+    leetcode_username?: string;
     avatar_url?: string;
   };
   isSaving: boolean;
@@ -246,6 +247,23 @@ const EditProfileModal = ({
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="https://twitter.com/yourusername"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center">
+              <Code className="w-4 h-4 mr-2 text-yellow-400" />
+              LeetCode Username
+            </label>
+            <input
+              type="text"
+              value={profileData.leetcode_username || ''}
+              onChange={(e) => onInputChange('leetcode_username', e.target.value)}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="Your LeetCode username"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Enter your LeetCode username to display your coding stats and submissions on your profile
+            </p>
           </div>
         </div>
 
