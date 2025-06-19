@@ -48,7 +48,7 @@ export interface LeetCodeSolvedStats {
 }
 
 // Base URL for the LeetCode API
-const API_BASE_URL = 'https://leetcode-api1.onrender.com/';
+const API_BASE_URL = 'https://leetcode-api1.onrender.com';
 
 export const fetchLeetCodeProfileStats = async (username: string): Promise<LeetCodeProfile> => {
   try {
