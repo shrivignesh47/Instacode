@@ -23,6 +23,7 @@ interface User {
   receivePostLikeNotifications: boolean;
   receivePostCommentNotifications: boolean;
   receiveNewPostFromFollowedNotifications: boolean;
+  leetcodeUsername: string | null;
 }
 
 interface AuthContextType {
@@ -78,6 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       receivePostLikeNotifications: true,
       receivePostCommentNotifications: true,
       receiveNewPostFromFollowedNotifications: true,
+      leetcodeUsername: null,
     };
   };
 
@@ -138,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             receivePostLikeNotifications: profile.receive_post_like_notifications ?? true,
             receivePostCommentNotifications: profile.receive_post_comment_notifications ?? true,
             receiveNewPostFromFollowedNotifications: profile.receive_new_post_from_followed_notifications ?? true,
+            leetcodeUsername: profile.leetcode_username || null,
           };
         }
 
@@ -195,6 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           receivePostLikeNotifications: profile.receive_post_like_notifications ?? true,
           receivePostCommentNotifications: profile.receive_post_comment_notifications ?? true,
           receiveNewPostFromFollowedNotifications: profile.receive_new_post_from_followed_notifications ?? true,
+          leetcodeUsername: profile.leetcode_username || null,
         };
       }
 
@@ -222,6 +226,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profileData.linkedinUrl !== undefined) updateData.linkedin_url = profileData.linkedinUrl;
       if (profileData.twitterUrl !== undefined) updateData.twitter_url = profileData.twitterUrl;
       if (profileData.avatar !== undefined) updateData.avatar_url = profileData.avatar;
+      if (profileData.leetcodeUsername !== undefined) updateData.leetcode_username = profileData.leetcodeUsername;
       
       // Add notification preferences
       if (profileData.receiveFollowNotifications !== undefined) 
@@ -303,6 +308,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         receivePostLikeNotifications: profile.receive_post_like_notifications ?? true,
         receivePostCommentNotifications: profile.receive_post_comment_notifications ?? true,
         receiveNewPostFromFollowedNotifications: profile.receive_new_post_from_followed_notifications ?? true,
+        leetcodeUsername: profile.leetcode_username || null,
       }));
     } catch (error) {
       console.error('Error in searchUsers:', error);
@@ -344,6 +350,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         receive_post_like_notifications: true,
         receive_post_comment_notifications: true,
         receive_new_post_from_followed_notifications: true,
+        leetcode_username: null,
       });
 
       if (error) {

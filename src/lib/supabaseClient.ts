@@ -37,6 +37,7 @@ export interface Database {
           receive_post_like_notifications: boolean;
           receive_post_comment_notifications: boolean;
           receive_new_post_from_followed_notifications: boolean;
+          leetcode_username: string | null;
         };
         Insert: {
           id: string;
@@ -61,6 +62,7 @@ export interface Database {
           receive_post_like_notifications?: boolean;
           receive_post_comment_notifications?: boolean;
           receive_new_post_from_followed_notifications?: boolean;
+          leetcode_username?: string | null;
         };
         Update: {
           id?: string;
@@ -85,6 +87,7 @@ export interface Database {
           receive_post_like_notifications?: boolean;
           receive_post_comment_notifications?: boolean;
           receive_new_post_from_followed_notifications?: boolean;
+          leetcode_username?: string | null;
         };
       };
       posts: {

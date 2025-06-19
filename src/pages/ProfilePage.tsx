@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   ArrowLeft,
-  Loader2
+  Loader2,
+  Code
 } from 'lucide-react';
 import ProfileHeader from '../components/ProfileHeader';
 import EditProfileModal from '../components/EditProfileModal';
@@ -15,7 +16,9 @@ import ShareModal from '../components/ShareModal';
 import PostOptionsDropdown from '../components/PostOptionsDropdown';
 import FollowersModal from '../components/FollowersModal';
 import FollowingModal from '../components/FollowingModal';
+import LeetCodeStats from '../components/LeetCodeStats';
 import { useProfile } from '../hooks/useProfile';
+import { fetchLeetCodeProfileStats, fetchLeetCodeSubmissions, LeetCodeProfile, LeetCodeSubmission } from '../utils/leetcodeApi';
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
@@ -68,6 +71,12 @@ const ProfilePage = () => {
   const [isFollowersModalOpen, setIsFollowersModalOpen] = useState(false);
   const [isFollowingModalOpen, setIsFollowingModalOpen] = useState(false);
 
+  // LeetCode integration
+  const [leetcodeStats, setLeetcodeStats] = useState<LeetCodeProfile | null>(null);
+  const [leetcodeSubmissions, setLeetcodeSubmissions] = useState<LeetCodeSubmission[] | null>(null);
+  const [leetcodeLoading, setLeetcodeLoading] = useState(false);
+  const [leetcodeError, setLeetcodeError] = useState<string | null>(null);
+
   useEffect(() => {
     if (selectedPost) {
       setShareLink(`${window.location.origin}/post/${selectedPost.id}`);
@@ -86,8 +95,39 @@ const ProfilePage = () => {
         twitter_url: profile.twitter_url || '',
         avatar_url: profile.avatar_url || ''
       });
+
+      // Fetch LeetCode data if username is available
+      if (profile.leetcode_username) {
+        fetchLeetCodeData(profile.leetcode_username);
+      } else {
+        // Reset LeetCode data if no username
+        setLeetcodeStats(null);
+        setLeetcodeSubmissions(null);
+        setLeetcodeError(null);
+      }
     }
   }, [profile]);
+
+  const fetchLeetCodeData = async (leetcodeUsername: string) => {
+    setLeetcodeLoading(true);
+    setLeetcodeError(null);
+
+    try {
+      // Fetch both profile stats and submissions in parallel
+      const [stats, submissions] = await Promise.all([
+        fetchLeetCodeProfileStats(leetcodeUsername),
+        fetchLeetCodeSubmissions(leetcodeUsername)
+      ]);
+
+      setLeetcodeStats(stats);
+      setLeetcodeSubmissions(submissions);
+    } catch (error) {
+      console.error('Error fetching LeetCode data:', error);
+      setLeetcodeError(error instanceof Error ? error.message : 'Failed to fetch LeetCode data');
+    } finally {
+      setLeetcodeLoading(false);
+    }
+  };
 
   const handleFollow = async () => {
     if (!user) {
@@ -242,6 +282,34 @@ const ProfilePage = () => {
             onMessageClick={handleMessageClick}
           />
         </div>
+
+        {/* LeetCode Stats Section */}
+        {profile.leetcode_username ? (
+          <LeetCodeStats
+            leetcodeStats={leetcodeStats}
+            leetcodeSubmissions={leetcodeSubmissions}
+            loading={leetcodeLoading}
+            error={leetcodeError}
+            username={profile.leetcode_username}
+          />
+        ) : isCurrentUser ? (
+          <div className="bg-gray-800 rounded-xl p-6 mb-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <Code className="w-6 h-6 text-yellow-500" />
+              <h3 className="text-xl font-semibold text-white">Connect LeetCode</h3>
+            </div>
+            <p className="text-gray-400 mb-4">
+              Connect your LeetCode account to showcase your coding stats and recent submissions on your profile.
+            </p>
+            <button
+              onClick={handleEditProfile}
+              className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors flex items-center space-x-2"
+            >
+              <Code className="w-4 h-4" />
+              <span>Add LeetCode Username</span>
+            </button>
+          </div>
+        ) : null}
 
         {/* Content Tabs - Mobile scrollable with proper container */}
         <div className="mb-4 sm:mb-6 w-full">

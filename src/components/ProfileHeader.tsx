@@ -1,4 +1,4 @@
-import { Check, Edit, MapPin, Globe, Github, Linkedin, Twitter, Calendar, Loader2, MessageCircle } from 'lucide-react';
+import { Check, Edit, MapPin, Globe, Github, Linkedin, Twitter, Calendar, Loader2, MessageCircle, Code } from 'lucide-react';
 
 interface ProfileHeaderProps {
   profile: any;
@@ -159,6 +159,17 @@ const ProfileHeader = ({
               >
                 <Twitter className="w-4 h-4 mr-2" />
                 Twitter
+              </a>
+            )}
+            {profile.leetcode_username && (
+              <a
+                href={`https://leetcode.com/${profile.leetcode_username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors flex items-center"
+              >
+                <Code className="w-4 h-4 mr-2" />
+                LeetCode
               </a>
             )}
           </div>

@@ -1,5 +1,5 @@
-
 import React from "react";
+import { Code } from 'lucide-react';
 
 interface CodingPlatform {
   name: string;
@@ -76,6 +76,21 @@ const ProfileSettingsSection: React.FC<ProfileSettingsSectionProps> = ({
       <div>
         <h3 className="text-lg font-semibold text-white mb-4">Coding Platform Links</h3>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* LeetCode Username Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center">
+              <Code className="w-4 h-4 mr-2 text-yellow-400" />
+              LeetCode Username
+            </label>
+            <input
+              type="text"
+              value={profileData.leetcodeUsername || ''}
+              onChange={(e) => setProfileData({ ...profileData, leetcodeUsername: e.target.value })}
+              placeholder="Enter your LeetCode username"
+              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+          
           {codingPlatforms.map((platform) => {
             const Icon = platform.icon;
             return (

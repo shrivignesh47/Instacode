@@ -45,7 +45,7 @@ const SettingsPage = () => {
     githubUrl: '',
     linkedinUrl: '',
     twitterUrl: '',
-    leetcodeUrl: '',
+    leetcodeUsername: '',
     hackerrankUrl: '',
     codeforceUrl: '',
   });
@@ -96,7 +96,7 @@ const SettingsPage = () => {
           githubUrl: profile.github_url || '',
           linkedinUrl: profile.linkedin_url || '',
           twitterUrl: profile.twitter_url || '',
-          leetcodeUrl: '',    // Not in public.profiles (for example: leave blank unless you add to table)
+          leetcodeUsername: profile.leetcode_username || '',
           hackerrankUrl: '',
           codeforceUrl: '',
         });
@@ -129,13 +129,6 @@ const SettingsPage = () => {
       key: 'githubUrl', 
       placeholder: 'https://github.com/username',
       color: 'text-gray-400 hover:text-white'
-    },
-    { 
-      name: 'LeetCode', 
-      icon: Code, 
-      key: 'leetcodeUrl', 
-      placeholder: 'https://leetcode.com/username',
-      color: 'text-yellow-400 hover:text-yellow-300'
     },
     { 
       name: 'HackerRank', 
@@ -186,6 +179,7 @@ const SettingsPage = () => {
         githubUrl: profileData.githubUrl,
         linkedinUrl: profileData.linkedinUrl,
         twitterUrl: profileData.twitterUrl,
+        leetcodeUsername: profileData.leetcodeUsername,
       });
 
       // Update notification settings
