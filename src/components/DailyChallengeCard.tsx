@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, ExternalLink, Code, Award, Clock, Tag, AlertCircle, Loader2 } from 'lucide-react';
+import { Calendar, ExternalLink, Code, Award, Clock, AlertCircle, Loader2 } from 'lucide-react';
 
 // Types for LeetCode daily challenge
 interface LeetCodeDailyChallenge {
@@ -52,13 +52,13 @@ const DailyChallengeCard: React.FC = () => {
       try {
         setLeetCodeLoading(true);
         setLeetCodeError(null);
-        
+
         const response = await fetch('https://leetcode-api1.onrender.com/daily');
-        
+
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         setLeetCodeChallenge(data);
       } catch (error) {
@@ -69,33 +69,42 @@ const DailyChallengeCard: React.FC = () => {
       }
     };
 
-    // Fetch GeeksforGeeks daily challenge
-    const fetchGFGChallenge = async () => {
-      try {
-        setGfgLoading(true);
-        setGfgError(null);
-        
-        const response = await fetch('https://practiceapi.geeksforgeeks.org/api/vr/problems-of-day/problem/today/');
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setGfgChallenge(data);
-      } catch (error) {
-        console.error('Error fetching GFG daily challenge:', error);
-        setGfgError('Failed to load GeeksforGeeks challenge');
-      } finally {
-        setGfgLoading(false);
-      }
-    };
-
     fetchLeetCodeChallenge();
-    fetchGFGChallenge();
+    fetchGFGChallenge(); // Initial fetch for GFG
   }, []);
 
-  // Format date to readable format
+  // Manual fetch for GFG
+  const fetchGFGChallenge = async () => {
+    try {
+      setGfgLoading(true);
+      setGfgError(null);
+
+      const response = await fetch(
+        'https://nmlgdixqnrtrvvipvawd.supabase.co/functions/v1/fetch-problem-of-the-day',
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setGfgChallenge(data);
+    } catch (error) {
+      console.error('Error fetching GeeksforGeeks daily challenge:', error);
+      setGfgError('Failed to load GeeksforGeeks challenge');
+    } finally {
+      setGfgLoading(false);
+    }
+  };
+
+  // Format date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -105,7 +114,7 @@ const DailyChallengeCard: React.FC = () => {
     });
   };
 
-  // Get difficulty color class
+  // Get difficulty color
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
       case 'easy':
@@ -119,11 +128,9 @@ const DailyChallengeCard: React.FC = () => {
     }
   };
 
-  // Format remaining time
   const formatRemainingTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    
     return `${hours}h ${minutes}m remaining`;
   };
 
@@ -132,14 +139,14 @@ const DailyChallengeCard: React.FC = () => {
       <div className="px-4 py-3 bg-gray-700 border-b border-gray-600 flex items-center justify-between">
         <h3 className="text-sm font-medium text-white">Daily Challenges</h3>
       </div>
-      
-      {/* LeetCode Challenge */}
+
+      {/* LeetCode */}
       <div className="p-4 border-b border-gray-700">
         <div className="flex items-center space-x-2 mb-3">
           <Code className="w-4 h-4 text-yellow-500" />
           <h4 className="text-sm font-medium text-white">LeetCode</h4>
         </div>
-        
+
         {leetCodeLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" />
@@ -150,63 +157,64 @@ const DailyChallengeCard: React.FC = () => {
             {leetCodeError}
           </div>
         ) : leetCodeChallenge ? (
-          <div>
-            <a 
-              href={leetCodeChallenge.questionLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block hover:bg-gray-700 rounded-lg p-3 transition-colors"
-            >
-              <h5 className="font-medium text-white mb-2 line-clamp-2">
-                {leetCodeChallenge.questionTitle}
-              </h5>
-              
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(leetCodeChallenge.difficulty)}`}>
-                  {leetCodeChallenge.difficulty}
-                </span>
-                
-                <span className="flex items-center text-xs text-gray-400">
-                  <Calendar className="w-3 h-3 mr-1" />
-                  {formatDate(leetCodeChallenge.date)}
-                </span>
+          <a
+            href={leetCodeChallenge.questionLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block hover:bg-gray-700 rounded-lg p-3 transition-colors"
+          >
+            <h5 className="font-medium text-white mb-2 line-clamp-2">{leetCodeChallenge.questionTitle}</h5>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(leetCodeChallenge.difficulty)}`}>
+                {leetCodeChallenge.difficulty}
+              </span>
+              <span className="flex items-center text-xs text-gray-400">
+                <Calendar className="w-3 h-3 mr-1" />
+                {formatDate(leetCodeChallenge.date)}
+              </span>
+            </div>
+
+            {leetCodeChallenge.topicTags && leetCodeChallenge.topicTags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {leetCodeChallenge.topicTags.slice(0, 3).map(tag => (
+                  <span key={tag.slug} className="px-2 py-1 bg-gray-700 text-xs text-purple-400 rounded">
+                    {tag.name}
+                  </span>
+                ))}
+                {leetCodeChallenge.topicTags.length > 3 && (
+                  <span className="px-2 py-1 bg-gray-700 text-xs text-gray-400 rounded">
+                    +{leetCodeChallenge.topicTags.length - 3} more
+                  </span>
+                )}
               </div>
-              
-              {leetCodeChallenge.topicTags && leetCodeChallenge.topicTags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {leetCodeChallenge.topicTags.slice(0, 3).map((tag) => (
-                    <span key={tag.slug} className="px-2 py-1 bg-gray-700 text-xs text-purple-400 rounded">
-                      {tag.name}
-                    </span>
-                  ))}
-                  {leetCodeChallenge.topicTags.length > 3 && (
-                    <span className="px-2 py-1 bg-gray-700 text-xs text-gray-400 rounded">
-                      +{leetCodeChallenge.topicTags.length - 3} more
-                    </span>
-                  )}
-                </div>
-              )}
-              
-              <div className="flex items-center justify-end mt-2 text-purple-400 text-xs">
-                <span>Solve Challenge</span>
-                <ExternalLink className="w-3 h-3 ml-1" />
-              </div>
-            </a>
-          </div>
+            )}
+
+            <div className="flex items-center justify-end mt-2 text-purple-400 text-xs">
+              <span>Solve Challenge</span>
+              <ExternalLink className="w-3 h-3 ml-1" />
+            </div>
+          </a>
         ) : (
-          <div className="text-gray-400 text-sm py-2">
-            No challenge available
-          </div>
+          <div className="text-gray-400 text-sm py-2">No challenge available</div>
         )}
       </div>
-      
-      {/* GeeksforGeeks Challenge */}
+
+      {/* GFG */}
       <div className="p-4">
         <div className="flex items-center space-x-2 mb-3">
           <Award className="w-4 h-4 text-green-500" />
           <h4 className="text-sm font-medium text-white">GeeksforGeeks</h4>
         </div>
-        
+
+        {/* <div className="flex justify-end mb-2">
+          <button
+            onClick={fetchGFGChallenge}
+            className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 text-white transition"
+          >
+            Fetch GFG Manually
+          </button>
+        </div> */}
+
         {gfgLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-5 h-5 text-green-500 animate-spin" />
@@ -217,43 +225,33 @@ const DailyChallengeCard: React.FC = () => {
             {gfgError}
           </div>
         ) : gfgChallenge ? (
-          <div>
-            <a 
-              href={gfgChallenge.problem_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block hover:bg-gray-700 rounded-lg p-3 transition-colors"
-            >
-              <h5 className="font-medium text-white mb-2 line-clamp-2">
-                {gfgChallenge.problem_name}
-              </h5>
-              
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(gfgChallenge.difficulty)}`}>
-                  {gfgChallenge.difficulty}
-                </span>
-                
-                <span className="flex items-center text-xs text-gray-400">
-                  <Clock className="w-3 h-3 mr-1" />
-                  {formatRemainingTime(gfgChallenge.remaining_time)}
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-3 text-xs text-gray-400 mt-2">
-                <span>Accuracy: {gfgChallenge.accuracy}%</span>
-                <span>Submissions: {gfgChallenge.total_submissions.toLocaleString()}</span>
-              </div>
-              
-              <div className="flex items-center justify-end mt-2 text-green-400 text-xs">
-                <span>Solve Challenge</span>
-                <ExternalLink className="w-3 h-3 ml-1" />
-              </div>
-            </a>
-          </div>
+          <a
+            href={gfgChallenge.problem_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block hover:bg-gray-700 rounded-lg p-3 transition-colors"
+          >
+            <h5 className="font-medium text-white mb-2 line-clamp-2">{gfgChallenge.problem_name}</h5>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(gfgChallenge.difficulty)}`}>
+                {gfgChallenge.difficulty}
+              </span>
+              <span className="flex items-center text-xs text-gray-400">
+                <Clock className="w-3 h-3 mr-1" />
+                {formatRemainingTime(gfgChallenge.remaining_time)}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-gray-400 mt-2">
+              <span>Accuracy: {gfgChallenge.accuracy}%</span>
+              <span>Submissions: {gfgChallenge.total_submissions.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-end mt-2 text-green-400 text-xs">
+              <span>Solve Challenge</span>
+              <ExternalLink className="w-3 h-3 ml-1" />
+            </div>
+          </a>
         ) : (
-          <div className="text-gray-400 text-sm py-2">
-            No challenge available
-          </div>
+          <div className="text-gray-400 text-sm py-2">No challenge available</div>
         )}
       </div>
     </div>

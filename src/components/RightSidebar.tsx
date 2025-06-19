@@ -1,5 +1,5 @@
-import React from 'react';
-import { ChevronRight, X, Users, MessageCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, ChevronRight } from 'lucide-react';
 import DailyChallengeCard from './DailyChallengeCard';
 
 interface RightSidebarProps {
@@ -10,6 +10,13 @@ interface RightSidebarProps {
   screenSize: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 }
 
+interface Contest {
+  contest_code: string;
+  contest_name: string;
+  link: string;
+  start_date?: string;
+}
+
 const RightSidebar: React.FC<RightSidebarProps> = ({
   isCollapsed,
   onToggleCollapse,
@@ -17,15 +24,48 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   onClose,
   screenSize
 }) => {
-  if (isCollapsed) {
-    return null;
-  }
+  const [futureContests, setFutureContests] = useState<Contest[]>([]);
+
+  useEffect(() => {
+    const fetchContests = async () => {
+      try {
+        const response = await fetch(
+          'https://nmlgdixqnrtrvvipvawd.supabase.co/functions/v1/fetch-codechef-contests',
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const contests = data?.future_contests?.map((c: any) => ({
+          contest_code: c.contest_code,
+          contest_name: c.contest_name,
+          link: `https://www.codechef.com/${c.contest_code}`,
+          start_date: c.start_date,
+        })) || [];
+        setFutureContests(contests);
+      } catch (error) {
+        console.error('Error fetching contests:', error);
+      }
+    };
+
+    fetchContests();
+  }, []);
+
+  if (isCollapsed) return null;
 
   const sidebarWidth = screenSize === '2xl' ? 'w-96' : 'w-80';
 
   return (
     <aside className={`h-[calc(100vh-4rem)] ${sidebarWidth} bg-gray-800 border-l border-gray-700 overflow-y-auto`}>
-      {/* Mobile Close Button */}
       {isMobile && onClose && (
         <div className="flex justify-end p-4 border-b border-gray-700">
           <button
@@ -38,118 +78,40 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       )}
 
       <div className="p-4 space-y-4">
-        {/* Daily Challenges */}
+        {/* Daily Challenge Section */}
         <DailyChallengeCard />
 
-        {/* Suggested Connections */}
+        {/* Weekly Contests Section */}
         <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
           <div className="px-4 py-3 bg-gray-700 border-b border-gray-600 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-white">Suggested Connections</h3>
+          <h3 className="text-sm font-medium text-white">CodeChef Weekly Contests</h3>
+
             <button className="text-gray-400 hover:text-white text-xs">See All</button>
           </div>
           <div className="p-4">
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <img
-                      src={`https://images.pexels.com/photos/2379${i}04/pexels-photo-2379${i}04.jpeg?auto=compress&cs=tinysrgb&w=50`}
-                      alt={`Developer ${i}`}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
+            {futureContests.length > 0 ? (
+              <div className="space-y-3">
+                {futureContests.map((contest) => (
+                  <a
+                    key={contest.contest_code}
+                    href={contest.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between hover:bg-gray-700 p-2 rounded transition"
+                  >
                     <div>
-                      <div className="text-sm font-medium text-white">dev_ninja_{i}</div>
-                      <div className="text-xs text-gray-400">Full-stack Developer</div>
+                      <div className="text-sm font-medium text-white">{contest.contest_name}</div>
+                      {contest.start_date && (
+                        <div className="text-xs text-gray-400">{new Date(contest.start_date).toLocaleString()}</div>
+                      )}
                     </div>
-                  </div>
-                  <button className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition-colors">
-                    Follow
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Trending Topics */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-          <div className="px-4 py-3 bg-gray-700 border-b border-gray-600 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-white">Trending Topics</h3>
-            <button className="text-gray-400 hover:text-white text-xs">See All</button>
-          </div>
-          <div className="p-4">
-            <div className="space-y-3">
-              {['react', 'typescript', 'nextjs', 'tailwind', 'ai'].map((tag, i) => (
-                <div key={tag} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-gray-400 text-xs">#{i + 1}</span>
-                    <span className="text-purple-400 hover:text-purple-300 cursor-pointer">#{tag}</span>
-                  </div>
-                  <span className="text-xs text-gray-500">{(Math.random() * 1000).toFixed(0)} posts</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Active Communities */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-          <div className="px-4 py-3 bg-gray-700 border-b border-gray-600 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-white">Active Communities</h3>
-            <button className="text-gray-400 hover:text-white text-xs">See All</button>
-          </div>
-          <div className="p-4">
-            <div className="space-y-3">
-              {[
-                { name: 'React Developers', members: 15420, color: 'bg-blue-500' },
-                { name: 'TypeScript Enthusiasts', members: 8900, color: 'bg-blue-600' },
-                { name: 'Web3 Builders', members: 5600, color: 'bg-purple-500' }
-              ].map((community) => (
-                <div key={community.name} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 ${community.color} rounded-lg flex items-center justify-center text-white font-bold`}>
-                      {community.name.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="text-sm text-white">{community.name}</div>
-                      <div className="flex items-center text-xs text-gray-400">
-                        <Users className="w-3 h-3 mr-1" />
-                        <span>{community.members.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-500" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Forum Topics */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-          <div className="px-4 py-3 bg-gray-700 border-b border-gray-600 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-white">Recent Forum Topics</h3>
-            <button className="text-gray-400 hover:text-white text-xs">See All</button>
-          </div>
-          <div className="p-4">
-            <div className="space-y-3">
-              {[
-                'Best practices for React state management',
-                'TypeScript generics explained',
-                'Optimizing API calls in Next.js'
-              ].map((topic) => (
-                <div key={topic} className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="text-sm text-white line-clamp-1">{topic}</div>
-                    <div className="flex items-center text-xs text-gray-400">
-                      <MessageCircle className="w-3 h-3 mr-1" />
-                      <span>{(Math.random() * 100).toFixed(0)} replies</span>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0 ml-2" />
-                </div>
-              ))}
-            </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400">No upcoming contests.</div>
+            )}
           </div>
         </div>
       </div>
