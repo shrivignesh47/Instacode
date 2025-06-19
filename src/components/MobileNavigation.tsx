@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Compass, Plus, MessageCircle, User, Search, Bell } from 'lucide-react';
+import { Home, Compass, Plus, MessageCircle, User, Search, Bell, Code } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import UserSearchModal from './UserSearchModal';
 import NotificationsModal from './NotificationsModal';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import DailyChallengeCard from './DailyChallengeCard';
 
 const MobileNavigation = () => {
   const location = useLocation();
@@ -13,6 +14,7 @@ const MobileNavigation = () => {
   const { user } = useAuth();
   const [showUserSearch, setShowUserSearch] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [showDailyChallenges, setShowDailyChallenges] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   // Fetch unread notification count
@@ -104,6 +106,15 @@ const MobileNavigation = () => {
             <span className="text-xs mt-1 truncate">Search</span>
           </button>
 
+          {/* Daily Challenges Button */}
+          <button
+            onClick={() => setShowDailyChallenges(!showDailyChallenges)}
+            className="flex flex-col items-center py-2 px-2 rounded-lg transition-colors min-w-0 flex-1 text-gray-400 hover:text-white"
+          >
+            <Code className="w-5 h-5 flex-shrink-0" />
+            <span className="text-xs mt-1 truncate">Challenges</span>
+          </button>
+
           {/* Notifications Button */}
           <button
             onClick={() => setShowNotificationsModal(true)}
@@ -154,6 +165,26 @@ const MobileNavigation = () => {
         onClose={() => setShowNotificationsModal(false)}
         onMarkAsRead={handleMarkAsRead}
       />
+
+      {/* Daily Challenges Modal for Mobile */}
+      {showDailyChallenges && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+              <h2 className="text-lg font-semibold text-white">Daily Challenges</h2>
+              <button
+                onClick={() => setShowDailyChallenges(false)}
+                className="p-2 text-gray-400 hover:text-white"
+              >
+                <Bell className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <DailyChallengeCard />
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
