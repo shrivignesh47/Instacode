@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Square, Copy, Download, Maximize2, Minimize2 } from 'lucide-react';
+import { Play, Square, Copy, Download, Maximize2, Minimize2, Zap, Eye, Loader2 } from 'lucide-react';
 import { executeCode, getFileExtension } from '../utils/codeRunner';
 
 interface CodeEditorProps {
@@ -24,6 +24,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [isRunning, setIsRunning] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fontSize, setFontSize] = useState(14);
+  const [showVisualization, setShowVisualization] = useState(false);
+  const [isVisualizing, setIsVisualizing] = useState(false);
+  const [visualizationSteps, setVisualizationSteps] = useState<any[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -51,6 +54,70 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   };
 
+  const visualizeCode = async () => {
+    if (!code.trim()) {
+      setOutput('Error: No code to visualize');
+      return;
+    }
+
+    setIsVisualizing(true);
+    setVisualizationSteps([]);
+
+    try {
+      // This is a placeholder for actual code visualization logic
+      // In a real implementation, this would parse the code and generate visualization steps
+      
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Generate mock visualization steps based on code type
+      let mockSteps = [];
+      
+      if (code.includes('function') || code.includes('def ') || code.includes('class')) {
+        // Function or class visualization
+        mockSteps = [
+          { type: 'info', content: 'Parsing code structure...' },
+          { type: 'structure', content: 'Identified code structure: ' + (code.includes('class') ? 'Class definition' : 'Function definition') },
+          { type: 'explanation', content: 'This code defines a ' + (code.includes('class') ? 'class' : 'function') + ' that can be used to organize and reuse code.' },
+          { type: 'suggestion', content: 'Consider adding more comments to explain the purpose of this ' + (code.includes('class') ? 'class' : 'function') + '.' }
+        ];
+      } else if (code.includes('for') || code.includes('while')) {
+        // Loop visualization
+        mockSteps = [
+          { type: 'info', content: 'Analyzing loop structure...' },
+          { type: 'structure', content: 'Identified loop pattern: ' + (code.includes('for') ? 'For loop' : 'While loop') },
+          { type: 'explanation', content: 'This loop iterates through a sequence of values, executing the code block for each iteration.' },
+          { type: 'suggestion', content: 'Watch for potential infinite loops or off-by-one errors in your loop conditions.' }
+        ];
+      } else if (code.includes('array') || code.includes('[]') || code.includes('list')) {
+        // Array/list visualization
+        mockSteps = [
+          { type: 'info', content: 'Analyzing data structures...' },
+          { type: 'structure', content: 'Identified data structure: Array/List' },
+          { type: 'explanation', content: 'This code manipulates an array or list, which is a collection of ordered elements.' },
+          { type: 'suggestion', content: 'Consider using array methods like map, filter, or reduce for more concise operations.' }
+        ];
+      } else {
+        // Generic code visualization
+        mockSteps = [
+          { type: 'info', content: 'Analyzing code...' },
+          { type: 'structure', content: 'Basic code structure identified' },
+          { type: 'explanation', content: 'This code appears to be a simple script with sequential execution.' },
+          { type: 'suggestion', content: 'Consider structuring your code into functions for better organization and reusability.' }
+        ];
+      }
+      
+      setVisualizationSteps(mockSteps);
+    } catch (error) {
+      console.error('Code visualization error:', error);
+      setVisualizationSteps([
+        { type: 'error', content: `Visualization failed: ${error instanceof Error ? error.message : 'Unknown error occurred'}` }
+      ]);
+    } finally {
+      setIsVisualizing(false);
+    }
+  };
+
   const copyCode = () => {
     navigator.clipboard.writeText(code);
   };
@@ -70,6 +137,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
+  };
+
+  const getStepTypeStyle = (type: string) => {
+    switch (type) {
+      case 'info': return 'text-blue-400';
+      case 'structure': return 'text-purple-400';
+      case 'explanation': return 'text-green-400';
+      case 'suggestion': return 'text-yellow-400';
+      case 'error': return 'text-red-400';
+      default: return 'text-gray-300';
+    }
   };
 
   const editorClasses = `
@@ -108,6 +186,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           </div>
           
           <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowVisualization(!showVisualization)}
+              className={`p-1.5 ${showVisualization ? 'text-purple-400 bg-gray-600' : 'text-gray-400'} hover:text-white hover:bg-gray-600 rounded transition-colors`}
+              title="Visualize code"
+            >
+              <Zap className="w-4 h-4" />
+            </button>
+            
             {showRunButton && (
               <button
                 onClick={runCode}
@@ -188,6 +274,54 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             }}
           />
         </div>
+
+        {/* Visualization Panel */}
+        {showVisualization && (
+          <div className="border-t border-gray-600">
+            <div className="px-4 py-2 bg-gray-700 border-b border-gray-600 flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-300">Code Visualization</span>
+              <button
+                onClick={visualizeCode}
+                disabled={isVisualizing || !code.trim()}
+                className="flex items-center space-x-1 px-2 py-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs rounded transition-colors"
+              >
+                {isVisualizing ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Analyzing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-3 h-3" />
+                    <span>Analyze</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="p-3 bg-gray-800 text-gray-100 overflow-y-auto" style={{ maxHeight: '200px' }}>
+              {visualizationSteps.length > 0 ? (
+                <div className="space-y-3">
+                  {visualizationSteps.map((step, index) => (
+                    <div key={index} className="p-3 bg-gray-700 rounded-lg">
+                      <div className={`font-medium mb-1 ${getStepTypeStyle(step.type)}`}>
+                        {step.type.charAt(0).toUpperCase() + step.type.slice(1)}:
+                      </div>
+                      <div className="text-sm text-gray-300">{step.content}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-4 text-center">
+                  <Zap className="w-8 h-8 text-purple-500 mb-2" />
+                  <h3 className="text-base font-medium text-white mb-1">Code Visualization</h3>
+                  <p className="text-xs text-gray-400 max-w-md">
+                    Click "Analyze" to visualize your code execution.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Output */}
         {showRunButton && (
