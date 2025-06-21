@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Play, Square, Copy, Download, Maximize2, Monitor, Settings, Save, Eye, Code, Zap, Loader2 } from 'lucide-react';
+import { X, Play, Square, Copy, Download, Maximize2, Monitor, Settings, Save, Eye, Code, Zap, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { executeCode, getFileExtension, getSupportedLanguages } from '../utils/codeRunner';
 import RecordingControls from '../components/RecordingControls';
 import VideoProcessor from '../components/VideoProcessor';
 import { useRecording } from '../hooks/useRecording';
 import CreatePostModal from '../components/CreatePostModal';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const CodePlaygroundPage = () => {
   const navigate = useNavigate();
@@ -27,6 +28,10 @@ const CodePlaygroundPage = () => {
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  
+  // Initialize Gemini API
+  const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
+  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
   
   const {
     isRecording,
@@ -149,54 +154,85 @@ public class Main {
     setCurrentStep(0);
 
     try {
-      // This is a placeholder for actual code visualization logic
-      // In a real implementation, this would parse the code and generate visualization steps
+      // Construct prompt for Gemini API
+      const prompt = `
+      Analyze this ${language} code and provide a detailed visualization of its execution:
       
-      // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      ${code}
       
-      // Generate mock visualization steps based on code type
-      let mockSteps = [];
-      
-      if (code.includes('function') || code.includes('def ') || code.includes('class')) {
-        // Function or class visualization
-        mockSteps = [
-          { type: 'info', content: 'Parsing code structure...' },
-          { type: 'structure', content: 'Identified code structure: ' + (code.includes('class') ? 'Class definition' : 'Function definition') },
-          { type: 'explanation', content: 'This code defines a ' + (code.includes('class') ? 'class' : 'function') + ' that can be used to organize and reuse code.' },
-          { type: 'suggestion', content: 'Consider adding more comments to explain the purpose of this ' + (code.includes('class') ? 'class' : 'function') + '.' }
-        ];
-      } else if (code.includes('for') || code.includes('while')) {
-        // Loop visualization
-        mockSteps = [
-          { type: 'info', content: 'Analyzing loop structure...' },
-          { type: 'structure', content: 'Identified loop pattern: ' + (code.includes('for') ? 'For loop' : 'While loop') },
-          { type: 'explanation', content: 'This loop iterates through a sequence of values, executing the code block for each iteration.' },
-          { type: 'suggestion', content: 'Watch for potential infinite loops or off-by-one errors in your loop conditions.' }
-        ];
-      } else if (code.includes('array') || code.includes('[]') || code.includes('list')) {
-        // Array/list visualization
-        mockSteps = [
-          { type: 'info', content: 'Analyzing data structures...' },
-          { type: 'structure', content: 'Identified data structure: Array/List' },
-          { type: 'explanation', content: 'This code manipulates an array or list, which is a collection of ordered elements.' },
-          { type: 'suggestion', content: 'Consider using array methods like map, filter, or reduce for more concise operations.' }
-        ];
-      } else {
-        // Generic code visualization
-        mockSteps = [
-          { type: 'info', content: 'Analyzing code...' },
-          { type: 'structure', content: 'Basic code structure identified' },
-          { type: 'explanation', content: 'This code appears to be a simple script with sequential execution.' },
-          { type: 'suggestion', content: 'Consider structuring your code into functions for better organization and reusability.' }
-        ];
+      Return a JSON object with the following structure:
+      {
+        "frames": [
+          {
+            "lineNumber": number,
+            "codeSnippet": "string",
+            "description": "string",
+            "objects": [
+              {
+                "name": "string",
+                "type": "string",
+                "value": "string",
+                "change": "created|modified|unchanged"
+              }
+            ]
+          }
+        ]
       }
       
-      setVisualizationSteps(mockSteps);
+      Each frame should represent a step in the code execution, showing:
+      1. The line number being executed
+      2. The code snippet for that line
+      3. A description of what happens
+      4. The state of all relevant variables/objects at that point
+      
+      Focus on how variables and data structures change during execution.
+      ONLY return valid JSON, no other text.
+      `;
+
+      // Call Gemini API
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      
+      // Parse JSON response
+      try {
+        // Extract JSON from the response (in case there's any extra text)
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          throw new Error("No valid JSON found in response");
+        }
+        
+        const jsonStr = jsonMatch[0];
+        const data = JSON.parse(jsonStr);
+        
+        if (data && data.frames && Array.isArray(data.frames)) {
+          setVisualizationSteps(data.frames);
+        } else {
+          throw new Error("Invalid visualization data structure");
+        }
+      } catch (parseError) {
+        console.error("Error parsing visualization JSON:", parseError);
+        // Fallback to simpler visualization if JSON parsing fails
+        setVisualizationSteps([
+          { 
+            type: 'error', 
+            content: `Visualization parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`,
+            lineNumber: null,
+            codeSnippet: null,
+            objects: []
+          }
+        ]);
+      }
     } catch (error) {
       console.error('Code visualization error:', error);
       setVisualizationSteps([
-        { type: 'error', content: `Visualization failed: ${error instanceof Error ? error.message : 'Unknown error occurred'}` }
+        { 
+          type: 'error', 
+          content: `Visualization failed: ${error instanceof Error ? error.message : 'Unknown error occurred'}`,
+          lineNumber: null,
+          codeSnippet: null,
+          objects: []
+        }
       ]);
     } finally {
       setIsVisualizing(false);
@@ -262,6 +298,15 @@ public class Main {
       case 'suggestion': return 'text-yellow-400';
       case 'error': return 'text-red-400';
       default: return 'text-gray-300';
+    }
+  };
+
+  const getChangeStyle = (change: string) => {
+    switch (change) {
+      case 'created': return 'text-green-400';
+      case 'modified': return 'text-yellow-400';
+      case 'unchanged': return 'text-gray-400';
+      default: return 'text-gray-400';
     }
   };
 
@@ -564,19 +609,83 @@ public class Main {
                         </>
                       )}
                     </button>
+                    {visualizationSteps.length > 0 && (
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+                          disabled={currentStep === 0}
+                          className="p-1 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded transition-colors"
+                        >
+                          <ChevronLeft className="w-3 h-3" />
+                        </button>
+                        <span className="text-xs text-gray-300">
+                          {currentStep + 1} / {visualizationSteps.length}
+                        </span>
+                        <button
+                          onClick={() => setCurrentStep(Math.min(visualizationSteps.length - 1, currentStep + 1))}
+                          disabled={currentStep === visualizationSteps.length - 1}
+                          className="p-1 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded transition-colors"
+                        >
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="p-3 sm:p-4 bg-gray-800 text-gray-100 overflow-y-auto" style={{ maxHeight: '250px' }}>
                   {visualizationSteps.length > 0 ? (
-                    <div className="space-y-3">
-                      {visualizationSteps.map((step, index) => (
-                        <div key={index} className="p-3 bg-gray-700 rounded-lg">
-                          <div className={`font-medium mb-1 ${getStepTypeStyle(step.type)}`}>
-                            {step.type.charAt(0).toUpperCase() + step.type.slice(1)}:
-                          </div>
-                          <div className="text-sm text-gray-300">{step.content}</div>
+                    <div>
+                      {visualizationSteps[currentStep].type === 'error' ? (
+                        <div className="p-3 bg-red-900 bg-opacity-50 border border-red-500 rounded-lg">
+                          <div className="font-medium mb-1 text-red-400">Error:</div>
+                          <div className="text-sm text-gray-300">{visualizationSteps[currentStep].content}</div>
                         </div>
-                      ))}
+                      ) : (
+                        <div className="space-y-4">
+                          {/* Frame information */}
+                          {visualizationSteps[currentStep].lineNumber && (
+                            <div className="p-3 bg-gray-700 rounded-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="text-sm font-medium text-purple-400">
+                                  Line {visualizationSteps[currentStep].lineNumber}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  Step {currentStep + 1} of {visualizationSteps.length}
+                                </div>
+                              </div>
+                              {visualizationSteps[currentStep].codeSnippet && (
+                                <div className="bg-gray-800 p-2 rounded mb-2 font-mono text-sm">
+                                  {visualizationSteps[currentStep].codeSnippet}
+                                </div>
+                              )}
+                              <div className="text-sm text-gray-300">
+                                {visualizationSteps[currentStep].description}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Objects state */}
+                          {visualizationSteps[currentStep].objects && visualizationSteps[currentStep].objects.length > 0 && (
+                            <div className="p-3 bg-gray-700 rounded-lg">
+                              <div className="text-sm font-medium text-blue-400 mb-2">
+                                Variable State:
+                              </div>
+                              <div className="space-y-2">
+                                {visualizationSteps[currentStep].objects.map((obj: any, idx: number) => (
+                                  <div key={idx} className="flex items-start p-2 bg-gray-800 rounded">
+                                    <div className="w-1/4 font-mono text-xs text-gray-300">{obj.name}</div>
+                                    <div className="w-1/4 text-xs text-gray-400">{obj.type}</div>
+                                    <div className="w-1/3 font-mono text-xs text-white break-all">{obj.value}</div>
+                                    <div className={`w-1/6 text-xs text-right ${getChangeStyle(obj.change)}`}>
+                                      {obj.change}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center py-6 text-center">

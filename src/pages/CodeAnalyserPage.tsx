@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { Zap, Code, Play, Download, Copy, Share2, Loader2, AlertCircle, CheckCircle, Info, Lightbulb, FileCode, ArrowRight } from 'lucide-react';
+import { Zap, Code, Play, Download, Copy, Share2, Loader2, AlertCircle, CheckCircle, Info, Lightbulb, FileCode, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getSupportedLanguages, getFileExtension } from '../utils/codeRunner';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const CodeAnalyserPage = () => {
   const [code, setCode] = useState('');
@@ -10,7 +11,12 @@ const CodeAnalyserPage = () => {
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'structure' | 'explanation' | 'suggestions' | 'visualization'>('structure');
+  const [currentFrame, setCurrentFrame] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Initialize Gemini API
+  const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
+  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
   
   const supportedLanguages = getSupportedLanguages();
 
@@ -23,15 +29,84 @@ const CodeAnalyserPage = () => {
     setAnalysisResult(null);
 
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Construct prompt for Gemini API
+      const prompt = `
+      Analyze this ${language} code and provide a detailed analysis:
+      
+      ${code}
+      
+      Return a JSON object with the following structure:
+      {
+        "structure": {
+          "type": "string", // Object-Oriented, Functional, or Procedural
+          "components": [
+            { "name": "string", "count": number }
+          ],
+          "complexity": "string", // Low, Medium, or High
+          "lineCount": number,
+          "commentLines": number
+        },
+        "explanation": {
+          "summary": "string",
+          "steps": ["string"]
+        },
+        "suggestions": [
+          {
+            "type": "string", // improvement, warning, refactor, info
+            "title": "string",
+            "description": "string"
+          }
+        ],
+        "visualization": {
+          "frames": [
+            {
+              "lineNumber": number,
+              "codeSnippet": "string",
+              "description": "string",
+              "objects": [
+                {
+                  "name": "string",
+                  "type": "string",
+                  "value": "string",
+                  "change": "created|modified|unchanged"
+                }
+              ]
+            }
+          ]
+        }
+      }
+      
+      Focus on providing accurate analysis with helpful suggestions.
+      For the visualization, show how variables and data structures change during execution.
+      ONLY return valid JSON, no other text.
+      `;
 
-      // This is a placeholder for actual code analysis
-      // In a real implementation, this would call a backend service
-      const mockAnalysis = generateMockAnalysis(code, language);
-      setAnalysisResult(mockAnalysis);
+      // Call Gemini API
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      
+      // Parse JSON response
+      try {
+        // Extract JSON from the response (in case there's any extra text)
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          throw new Error("No valid JSON found in response");
+        }
+        
+        const jsonStr = jsonMatch[0];
+        const data = JSON.parse(jsonStr);
+        
+        setAnalysisResult(data);
+      } catch (parseError) {
+        console.error("Error parsing analysis JSON:", parseError);
+        // Fallback to mock analysis if JSON parsing fails
+        setAnalysisResult(generateMockAnalysis(code, language));
+      }
     } catch (error) {
       console.error('Error analysing code:', error);
+      // Fallback to mock analysis if API call fails
+      setAnalysisResult(generateMockAnalysis(code, language));
     } finally {
       setIsAnalysing(false);
     }
@@ -72,8 +147,7 @@ const CodeAnalyserPage = () => {
     
     // Generate visualization data
     const visualization = {
-      flowchart: generateFlowchartData(codeToAnalyse, structure),
-      dataFlow: generateDataFlowData(codeToAnalyse, structure),
+      frames: generateVisualizationFrames(codeToAnalyse, lang)
     };
     
     return {
@@ -216,37 +290,159 @@ const CodeAnalyserPage = () => {
     return suggestions;
   };
 
-  const generateFlowchartData = (codeToAnalyse: string, structure: any) => {
-    // This would normally generate data for a flowchart visualization
-    // For this mock implementation, we'll return placeholder data
-    return {
-      nodes: [
-        { id: 'start', label: 'Start', type: 'start' },
-        { id: 'process', label: 'Process Data', type: 'process' },
-        { id: 'decision', label: 'Check Condition', type: 'decision' },
-        { id: 'end', label: 'End', type: 'end' },
-      ],
-      edges: [
-        { from: 'start', to: 'process' },
-        { from: 'process', to: 'decision' },
-        { from: 'decision', to: 'end', label: 'Yes' },
-        { from: 'decision', to: 'process', label: 'No' },
-      ],
-    };
-  };
-
-  const generateDataFlowData = (codeToAnalyse: string, structure: any) => {
-    // This would normally generate data for a data flow visualization
-    // For this mock implementation, we'll return placeholder data
-    return {
-      variables: [
-        { name: 'input', type: 'array', value: '[1, 2, 3, 4, 5]' },
-        { name: 'result', type: 'array', value: '[2, 4, 6, 8, 10]' },
-      ],
-      operations: [
-        { name: 'map', input: 'input', output: 'result', description: 'Doubles each value' },
-      ],
-    };
+  const generateVisualizationFrames = (codeToAnalyse: string, lang: string) => {
+    // This is a simplified mock implementation for visualization frames
+    const frames = [];
+    const lines = codeToAnalyse.split('\n');
+    
+    // Generate frames based on code type
+    if (lang === 'javascript' || lang === 'typescript') {
+      // For JavaScript/TypeScript code
+      let variables: any = {};
+      
+      // Variable declaration frame
+      const varDeclarations = lines.filter(line => 
+        line.includes('var ') || 
+        line.includes('let ') || 
+        line.includes('const ')
+      );
+      
+      for (let i = 0; i < varDeclarations.length; i++) {
+        const line = varDeclarations[i];
+        const lineNumber = lines.indexOf(line) + 1;
+        
+        // Simple variable extraction (this is a mock implementation)
+        const match = line.match(/(var|let|const)\s+(\w+)\s*=\s*(.+?);/);
+        if (match) {
+          const [, declarationType, varName, varValue] = match;
+          variables[varName] = {
+            type: varValue.includes('[') ? 'array' : 
+                  varValue.includes('{') ? 'object' : 
+                  varValue.includes('"') || varValue.includes("'") ? 'string' : 
+                  !isNaN(Number(varValue)) ? 'number' : 
+                  'unknown',
+            value: varValue.trim()
+          };
+          
+          frames.push({
+            lineNumber,
+            codeSnippet: line.trim(),
+            description: `${declarationType} ${varName} is initialized with value ${varValue.trim()}`,
+            objects: Object.entries(variables).map(([name, details]: [string, any]) => ({
+              name,
+              type: details.type,
+              value: details.value,
+              change: name === varName ? 'created' : 'unchanged'
+            }))
+          });
+        }
+      }
+      
+      // Function calls
+      const functionCalls = lines.filter(line => 
+        line.includes('(') && 
+        line.includes(')') && 
+        !line.includes('function')
+      );
+      
+      for (let i = 0; i < functionCalls.length; i++) {
+        const line = functionCalls[i];
+        const lineNumber = lines.indexOf(line) + 1;
+        
+        frames.push({
+          lineNumber,
+          codeSnippet: line.trim(),
+          description: `Function call executed`,
+          objects: Object.entries(variables).map(([name, details]: [string, any]) => ({
+            name,
+            type: details.type,
+            value: details.value,
+            change: 'unchanged'
+          }))
+        });
+      }
+      
+    } else if (lang === 'python') {
+      // For Python code
+      let variables: any = {};
+      
+      // Variable assignments
+      const varAssignments = lines.filter(line => 
+        line.includes('=') && 
+        !line.includes('==') && 
+        !line.includes('!=') && 
+        !line.includes('<=') && 
+        !line.includes('>=')
+      );
+      
+      for (let i = 0; i < varAssignments.length; i++) {
+        const line = varAssignments[i];
+        const lineNumber = lines.indexOf(line) + 1;
+        
+        // Simple variable extraction (this is a mock implementation)
+        const match = line.match(/(\w+)\s*=\s*(.+)/);
+        if (match) {
+          const [, varName, varValue] = match;
+          const isNewVar = !variables[varName];
+          variables[varName] = {
+            type: varValue.includes('[') ? 'list' : 
+                  varValue.includes('{') ? 'dict' : 
+                  varValue.includes('"') || varValue.includes("'") ? 'string' : 
+                  !isNaN(Number(varValue)) ? 'number' : 
+                  'unknown',
+            value: varValue.trim()
+          };
+          
+          frames.push({
+            lineNumber,
+            codeSnippet: line.trim(),
+            description: `Variable ${varName} is ${isNewVar ? 'initialized' : 'updated'} with value ${varValue.trim()}`,
+            objects: Object.entries(variables).map(([name, details]: [string, any]) => ({
+              name,
+              type: details.type,
+              value: details.value,
+              change: name === varName ? (isNewVar ? 'created' : 'modified') : 'unchanged'
+            }))
+          });
+        }
+      }
+      
+      // Function calls
+      const functionCalls = lines.filter(line => 
+        line.includes('(') && 
+        line.includes(')') && 
+        !line.includes('def ')
+      );
+      
+      for (let i = 0; i < functionCalls.length; i++) {
+        const line = functionCalls[i];
+        const lineNumber = lines.indexOf(line) + 1;
+        
+        frames.push({
+          lineNumber,
+          codeSnippet: line.trim(),
+          description: `Function call executed`,
+          objects: Object.entries(variables).map(([name, details]: [string, any]) => ({
+            name,
+            type: details.type,
+            value: details.value,
+            change: 'unchanged'
+          }))
+        });
+      }
+    }
+    
+    // If no frames were generated, add a default frame
+    if (frames.length === 0) {
+      frames.push({
+        lineNumber: 1,
+        codeSnippet: lines[0]?.trim() || 'No code',
+        description: 'Code execution starts',
+        objects: []
+      });
+    }
+    
+    return frames;
   };
 
   const copyCode = () => {
@@ -273,6 +469,15 @@ const CodeAnalyserPage = () => {
       case 'refactor': return <Code className="w-5 h-5 text-blue-400" />;
       case 'info': return <Info className="w-5 h-5 text-green-400" />;
       default: return <Info className="w-5 h-5 text-gray-400" />;
+    }
+  };
+
+  const getChangeStyle = (change: string) => {
+    switch (change) {
+      case 'created': return 'text-green-400';
+      case 'modified': return 'text-yellow-400';
+      case 'unchanged': return 'text-gray-400';
+      default: return 'text-gray-400';
     }
   };
 
@@ -373,40 +578,85 @@ const CodeAnalyserPage = () => {
         );
       
       case 'visualization':
+        if (!analysisResult.visualization || !analysisResult.visualization.frames || analysisResult.visualization.frames.length === 0) {
+          return (
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 text-center">
+              <FileCode className="w-12 h-12 text-purple-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">No visualization available</h3>
+              <p className="text-gray-300">Visualization data could not be generated for this code.</p>
+            </div>
+          );
+        }
+        
+        const frames = analysisResult.visualization.frames;
+        
         return (
           <div className="space-y-6">
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              <h3 className="text-lg font-semibold text-white mb-4">Code Flowchart</h3>
-              <div className="bg-gray-700 rounded-lg p-4 h-64 flex items-center justify-center">
-                <div className="text-center">
-                  <FileCode className="w-12 h-12 text-purple-500 mx-auto mb-3" />
-                  <p className="text-gray-300">Interactive flowchart visualization coming soon!</p>
-                  <p className="text-gray-500 text-sm mt-2">This feature is under development.</p>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">Code Execution Visualization</h3>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentFrame(Math.max(0, currentFrame - 1))}
+                    disabled={currentFrame === 0}
+                    className="p-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <span className="text-sm text-gray-300">
+                    {currentFrame + 1} / {frames.length}
+                  </span>
+                  <button
+                    onClick={() => setCurrentFrame(Math.min(frames.length - 1, currentFrame + 1))}
+                    disabled={currentFrame === frames.length - 1}
+                    className="p-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded transition-colors"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
-            </div>
-
-            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              <h3 className="text-lg font-semibold text-white mb-4">Data Flow</h3>
-              <div className="space-y-3">
-                {analysisResult.visualization.dataFlow.variables.map((variable: any, index: number) => (
-                  <div key={index} className="p-3 bg-gray-700 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-purple-400 font-mono">{variable.name}</span>
-                      <span className="text-gray-400 text-sm">{variable.type}</span>
+              
+              <div className="space-y-4">
+                {/* Frame information */}
+                <div className="p-4 bg-gray-700 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-medium text-purple-400">
+                      Line {frames[currentFrame].lineNumber}
                     </div>
-                    <div className="text-white font-mono text-sm bg-gray-800 p-2 rounded">{variable.value}</div>
+                    <div className="text-xs text-gray-400">
+                      Step {currentFrame + 1} of {frames.length}
+                    </div>
                   </div>
-                ))}
+                  {frames[currentFrame].codeSnippet && (
+                    <div className="bg-gray-800 p-3 rounded mb-3 font-mono text-sm">
+                      {frames[currentFrame].codeSnippet}
+                    </div>
+                  )}
+                  <div className="text-sm text-gray-300">
+                    {frames[currentFrame].description}
+                  </div>
+                </div>
                 
-                {analysisResult.visualization.dataFlow.operations.map((operation: any, index: number) => (
-                  <div key={index} className="flex items-center p-3 bg-gray-700 rounded-lg">
-                    <div className="text-blue-400 font-mono">{operation.input}</div>
-                    <ArrowRight className="mx-3 text-gray-500" />
-                    <div className="text-green-400 font-mono">{operation.output}</div>
-                    <div className="ml-auto text-gray-400 text-sm">{operation.description}</div>
+                {/* Objects state */}
+                {frames[currentFrame].objects && frames[currentFrame].objects.length > 0 && (
+                  <div className="p-4 bg-gray-700 rounded-lg">
+                    <div className="text-sm font-medium text-blue-400 mb-3">
+                      Variable State:
+                    </div>
+                    <div className="space-y-2">
+                      {frames[currentFrame].objects.map((obj: any, idx: number) => (
+                        <div key={idx} className="flex items-start p-3 bg-gray-800 rounded">
+                          <div className="w-1/4 font-mono text-sm text-gray-300">{obj.name}</div>
+                          <div className="w-1/4 text-sm text-gray-400">{obj.type}</div>
+                          <div className="w-1/3 font-mono text-sm text-white break-all">{obj.value}</div>
+                          <div className={`w-1/6 text-sm text-right ${getChangeStyle(obj.change)}`}>
+                            {obj.change}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>
