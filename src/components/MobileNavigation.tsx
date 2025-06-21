@@ -74,9 +74,9 @@ const MobileNavigation = () => {
   }, [user]);
 
   const navigationItems = [
-    { icon: Plus, label: 'Create', path: '/create' },
     { icon: Home, label: 'Home', path: '/home' },
-    { icon: Compass, label: 'Explore', path: '/explore' },
+    { icon: Plus, label: 'Create', path: '/create' },
+    // { icon: Compass, label: 'Explore', path: '/explore' },
     { icon: MessageCircle, label: 'Messages', path: '/messages' },
     // { icon: User, label: 'Profile', path: `/profile/${user?.username}` },
   ];
@@ -115,19 +115,7 @@ const MobileNavigation = () => {
             <Search className="w-5 h-5 flex-shrink-0" />
             <span className="text-xs mt-1 truncate">Search</span>
           </button>
-          {/* Notifications Button */}
-          <button
-            onClick={() => setShowNotificationsModal(true)}
-            className="flex flex-col items-center py-2 px-2 rounded-lg transition-colors min-w-0 flex-1 text-gray-400 hover:text-white relative"
-          >
-            <Bell className="w-5 h-5 flex-shrink-0" />
-            {unreadNotificationCount > 0 && (
-              <span className="absolute top-1 right-1/4 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
-              </span>
-            )}
-            <span className="text-xs mt-1 truncate">Alerts</span>
-          </button>
+
 
             {navigationItems.map((item) => {
               const Icon = item.icon;
