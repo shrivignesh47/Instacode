@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, ExternalLink, Code, Award, Clock, AlertCircle, Loader2 } from 'lucide-react';
+import { Code, CheckCircle, XCircle, Clock, Calendar, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 
 // Types for LeetCode daily challenge
 interface LeetCodeDailyChallenge {
@@ -45,6 +45,7 @@ const DailyChallengeCard: React.FC = () => {
   const [gfgLoading, setGfgLoading] = useState(true);
   const [leetCodeError, setLeetCodeError] = useState<string | null>(null);
   const [gfgError, setGfgError] = useState<string | null>(null);
+  const [showAllSubmissions, setShowAllSubmissions] = useState(false);
 
   useEffect(() => {
     // Fetch LeetCode daily challenge
@@ -149,11 +150,12 @@ const DailyChallengeCard: React.FC = () => {
 
         {leetCodeLoading ? (
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" />
+            <div className="w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="ml-2 text-gray-400 text-sm">Loading challenge...</span>
           </div>
         ) : leetCodeError ? (
           <div className="flex items-center text-red-400 text-sm py-2">
-            <AlertCircle className="w-4 h-4 mr-2" />
+            <XCircle className="w-4 h-4 mr-2" />
             {leetCodeError}
           </div>
         ) : leetCodeChallenge ? (
@@ -202,26 +204,18 @@ const DailyChallengeCard: React.FC = () => {
       {/* GFG */}
       <div className="p-4">
         <div className="flex items-center space-x-2 mb-3">
-          <Award className="w-4 h-4 text-green-500" />
+          <CheckCircle className="w-4 h-4 text-green-500" />
           <h4 className="text-sm font-medium text-white">GeeksforGeeks</h4>
         </div>
 
-        {/* <div className="flex justify-end mb-2">
-          <button
-            onClick={fetchGFGChallenge}
-            className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 text-white transition"
-          >
-            Fetch GFG Manually
-          </button>
-        </div> */}
-
         {gfgLoading ? (
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-5 h-5 text-green-500 animate-spin" />
+            <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="ml-2 text-gray-400 text-sm">Loading challenge...</span>
           </div>
         ) : gfgError ? (
           <div className="flex items-center text-red-400 text-sm py-2">
-            <AlertCircle className="w-4 h-4 mr-2" />
+            <XCircle className="w-4 h-4 mr-2" />
             {gfgError}
           </div>
         ) : gfgChallenge ? (

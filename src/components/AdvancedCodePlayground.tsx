@@ -268,12 +268,6 @@ public class Main {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const editorClasses = `
-    w-full p-4 bg-gray-900 text-gray-100 font-mono border border-gray-600 rounded-lg
-    focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent
-    resize-none overflow-auto transition-all duration-200
-  `;
-
   const getStepTypeStyle = (type: string) => {
     switch (type) {
       case 'info': return 'text-blue-400';
@@ -284,6 +278,12 @@ public class Main {
       default: return 'text-gray-300';
     }
   };
+
+  const editorClasses = `
+    w-full p-4 bg-gray-900 text-gray-100 font-mono border border-gray-600 rounded-lg
+    focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent
+    resize-none overflow-auto transition-all duration-200
+  `;
 
   return (
     <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-1 sm:p-4 ${isFullscreen ? 'p-0' : ''}`}>
@@ -333,19 +333,19 @@ public class Main {
             </div>
             
             <button
-              onClick={() => setShowInput(!showInput)}
-              className="p-1 sm:p-2 text-gray-400 hover:text-white hover:bg-gray-600 rounded transition-colors"
-              title="Toggle input panel"
-            >
-              <Monitor className="w-4 h-4" />
-            </button>
-            
-            <button
               onClick={() => setShowVisualization(!showVisualization)}
               className={`p-1 sm:p-2 ${showVisualization ? 'text-purple-400 bg-gray-600' : 'text-gray-400'} hover:text-white hover:bg-gray-600 rounded transition-colors`}
               title="Visualize code"
             >
               <Zap className="w-4 h-4" />
+            </button>
+            
+            <button
+              onClick={() => setShowInput(!showInput)}
+              className="p-1 sm:p-2 text-gray-400 hover:text-white hover:bg-gray-600 rounded transition-colors"
+              title="Toggle input panel"
+            >
+              <Monitor className="w-4 h-4" />
             </button>
             
             <button

@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './pages/LoginPage';
@@ -8,6 +7,7 @@ import ExplorePage from './pages/ExplorePage';
 import ProfilePage from './pages/ProfilePage';
 import CreatePage from './pages/CreatePage';
 import CodePlaygroundPage from './pages/CodePlaygroundPage';
+import CodeAnalyserPage from './pages/CodeAnalyserPage';
 import ForumsPage from './pages/ForumsPage';
 import CommunitiesPage from './pages/CommunitiesPage';
 import SavedPage from './pages/SavedPage';
@@ -101,6 +101,13 @@ function AppContent() {
       <Route path="/playground" element={
         <ProtectedRoute>
           <CodePlaygroundPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/code-analyser" element={
+        <ProtectedRoute>
+          <Layout>
+            <CodeAnalyserPage />
+          </Layout>
         </ProtectedRoute>
       } />
       <Route path="/forums" element={

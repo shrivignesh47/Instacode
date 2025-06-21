@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
@@ -13,7 +12,8 @@ import {
   TrendingUp,
   X,
   Settings,
-  Code2
+  Code2,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -38,6 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: Compass, label: 'Explore', path: '/explore' },
     { icon: Plus, label: 'Create', path: '/create' },
     { icon: Code2, label: 'Playground', path: '/playground' },
+    { icon: Zap, label: 'CodeAnalyser', path: '/code-analyser' },
     { icon: Users, label: 'Communities', path: '/communities' },
     { icon: MessageCircle, label: 'Messages', path: '/messages' },
     { icon: Hash, label: 'Forums', path: '/forums' },
