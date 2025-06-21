@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Play, Square, Copy, Download, Maximize2, Monitor, Settings, Save, Eye, Code, Zap, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Play, Square, Copy, Download, Maximize2, Monitor, Settings, Save, Zap, Eye, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { executeCode, getFileExtension, getSupportedLanguages } from '../utils/codeRunner';
 import RecordingControls from '../components/RecordingControls';
 import VideoProcessor from '../components/VideoProcessor';
@@ -288,17 +288,6 @@ public class Main {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const getStepTypeStyle = (type: string) => {
-    switch (type) {
-      case 'info': return 'text-blue-400';
-      case 'structure': return 'text-purple-400';
-      case 'explanation': return 'text-green-400';
-      case 'suggestion': return 'text-yellow-400';
-      case 'error': return 'text-red-400';
-      default: return 'text-gray-300';
-    }
   };
 
   const getChangeStyle = (change: string) => {

@@ -158,17 +158,6 @@ const CodePlayground: React.FC<CodePlaygroundProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const getStepTypeStyle = (type: string) => {
-    switch (type) {
-      case 'info': return 'text-blue-400';
-      case 'structure': return 'text-purple-400';
-      case 'explanation': return 'text-green-400';
-      case 'suggestion': return 'text-yellow-400';
-      case 'error': return 'text-red-400';
-      default: return 'text-gray-300';
-    }
-  };
-
   const getChangeStyle = (change: string) => {
     switch (change) {
       case 'created': return 'text-green-400';

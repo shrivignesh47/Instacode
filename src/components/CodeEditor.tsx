@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Square, Copy, Download, Maximize2, Minimize2, Zap, Eye, Loader2 } from 'lucide-react';
+import { Play, Square, Copy, Download, Maximize2, Minimize2, Zap, Eye, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { executeCode, getFileExtension } from '../utils/codeRunner';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -177,17 +177,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     setIsFullscreen(!isFullscreen);
   };
 
-  const getStepTypeStyle = (type: string) => {
-    switch (type) {
-      case 'info': return 'text-blue-400';
-      case 'structure': return 'text-purple-400';
-      case 'explanation': return 'text-green-400';
-      case 'suggestion': return 'text-yellow-400';
-      case 'error': return 'text-red-400';
-      default: return 'text-gray-300';
-    }
-  };
-
   const getChangeStyle = (change: string) => {
     switch (change) {
       case 'created': return 'text-green-400';
@@ -350,9 +339,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                     <button
                       onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
                       disabled={currentStep === 0}
-                      className="px-2 py-1 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-xs rounded transition-colors"
+                      className="p-1 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded transition-colors"
                     >
-                      Prev
+                      <ChevronLeft className="w-3 h-3" />
                     </button>
                     <span className="text-xs text-gray-300">
                       {currentStep + 1} / {visualizationSteps.length}
@@ -360,9 +349,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                     <button
                       onClick={() => setCurrentStep(Math.min(visualizationSteps.length - 1, currentStep + 1))}
                       disabled={currentStep === visualizationSteps.length - 1}
-                      className="px-2 py-1 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-xs rounded transition-colors"
+                      className="p-1 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded transition-colors"
                     >
-                      Next
+                      <ChevronRight className="w-3 h-3" />
                     </button>
                   </div>
                 )}
