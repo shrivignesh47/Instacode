@@ -90,9 +90,9 @@ const ProblemExcelUploadModal: React.FC<ProblemExcelUploadModalProps> = ({
       } else {
         throw new Error(result.error || 'Failed to upload problems');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error uploading problems:', err);
-      setError(err instanceof Error ? err.message : 'Failed to upload problems');
+      setError(err.message || 'Failed to upload problems');
     } finally {
       setIsUploading(false);
     }
