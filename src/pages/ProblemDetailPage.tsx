@@ -43,6 +43,7 @@ const ProblemDetailPage = () => {
   useEffect(() => {
     if (problem && problem.starter_code) {
       setCode(problem.starter_code);
+      console.log('Loaded starter code:', problem.starter_code);
     }
   }, [problem]);
 
@@ -62,7 +63,12 @@ const ProblemDetailPage = () => {
       // Set overall output
       const passedCount = result.test_cases_passed;
       const totalCount = result.test_cases_total;
-      setOutput(`Passed ${passedCount}/${totalCount} test cases`);
+      
+      if (result.error_message) {
+        setOutput(`Error: ${result.error_message}`);
+      } else {
+        setOutput(`Passed ${passedCount}/${totalCount} test cases`);
+      }
       
     } catch (error) {
       console.error('Error running code:', error);
@@ -445,12 +451,14 @@ const ProblemDetailPage = () => {
                 ? 'bg-green-900 bg-opacity-30 border border-green-700' 
                 : submissionStatus === 'error'
                 ? 'bg-red-900 bg-opacity-30 border border-red-700'
+                : submissionStatus === 'compilation_error' || submissionStatus === 'runtime_error'
+                ? 'bg-red-900 bg-opacity-30 border border-red-700'
                 : 'bg-yellow-900 bg-opacity-30 border border-yellow-700'
             }`}>
               <div className="flex items-center space-x-2">
                 {submissionStatus === 'accepted' ? (
                   <CheckCircle className="w-5 h-5 text-green-500" />
-                ) : submissionStatus === 'error' ? (
+                ) : submissionStatus === 'error' || submissionStatus === 'compilation_error' || submissionStatus === 'runtime_error' ? (
                   <AlertTriangle className="w-5 h-5 text-red-500" />
                 ) : (
                   <XCircle className="w-5 h-5 text-yellow-500" />
@@ -458,7 +466,7 @@ const ProblemDetailPage = () => {
                 <span className={`font-medium ${
                   submissionStatus === 'accepted' 
                     ? 'text-green-400' 
-                    : submissionStatus === 'error'
+                    : submissionStatus === 'error' || submissionStatus === 'compilation_error' || submissionStatus === 'runtime_error'
                     ? 'text-red-400'
                     : 'text-yellow-400'
                 }`}>
@@ -466,6 +474,12 @@ const ProblemDetailPage = () => {
                     ? 'All test cases passed! Problem completed.' 
                     : submissionStatus === 'error'
                     ? 'An error occurred during submission.'
+                    : submissionStatus === 'compilation_error'
+                    ? 'Compilation Error: Please check your code syntax.'
+                    : submissionStatus === 'runtime_error'
+                    ? 'Runtime Error: Your code crashed during execution.'
+                    : submissionStatus === 'time_limit_exceeded'
+                    ? 'Time Limit Exceeded: Your solution took too long to execute.'
                     : 'Some test cases failed. Try again!'}
                 </span>
               </div>
