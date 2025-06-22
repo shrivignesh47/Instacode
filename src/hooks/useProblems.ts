@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, type ProblemWithUser } from '../lib/supabaseClient';
+import { supabase, type ProblemWithUser, type ProblemImportWithUser, type ProblemSubmissionWithUser, type DailyProblemWithProblem } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 
 export const useProblems = (category?: string, difficulty?: string, searchQuery?: string) => {
@@ -424,4 +424,54 @@ export const useDailyProblem = () => {
   }, []);
 
   return { dailyProblem, loading, error };
+};
+
+export const useProblemImports = () => {
+  const [imports, setImports] = useState<ProblemImportWithUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  const fetchImports = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error: importsError } = await supabase
+        .from('problem_imports')
+        .select(`
+          *,
+          profiles:user_id (
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (importsError) {
+        throw importsError;
+      }
+
+      setImports(data as ProblemImportWithUser[] || []);
+    } catch (err: any) {
+      console.error('Error fetching problem imports:', err);
+      setError(err.message || 'Failed to load imports');
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchImports();
+  }, [fetchImports]);
+
+  return { imports, loading, error, refetch: fetchImports };
 };
