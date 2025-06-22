@@ -166,7 +166,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `code.${extension}`;
+    a.download = `code${extension}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

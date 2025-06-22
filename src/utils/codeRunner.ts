@@ -1,3 +1,4 @@
+// Code execution utilities
 
 const API_BASE_URL = 'https://emkc.org/api/v2/piston/execute';
 
@@ -10,7 +11,7 @@ export const executeCode = async (code: string, language: string, input?: string
     if (pistonResult) return pistonResult;
     
     // Fallback to mock execution for now
-    return await mockExecution(code, language);
+    return await mockExecution(code, language, input);
     
   } catch (error: any) {
     console.error('Code execution error:', error);
@@ -100,25 +101,31 @@ const tryPistonExecution = async (code: string, language: string, input?: string
   }
 };
 
-const mockExecution = async (code: string, language: string): Promise<string> => {
+const mockExecution = async (code: string, language: string, input?: string): Promise<string> => {
   // Simulate execution delay
   await new Promise(resolve => setTimeout(resolve, 1000));
   
+  // If input is provided, show it in the output
+  let inputPrefix = '';
+  if (input) {
+    inputPrefix = `Input:\n${input}\n\nOutput:\n`;
+  }
+  
   const mockResults: Record<string, string> = {
-    'javascript': `> node main.js\nHello, World!\n[Simulated execution - API unavailable]`,
-    'python': `> python main.py\nHello, World!\n[Simulated execution - API unavailable]`,
-    'java': `> javac Main.java && java Main\nHello, World!\n[Simulated execution - API unavailable]`,
-    'cpp': `> g++ -o main main.cpp && ./main\nHello, World!\n[Simulated execution - API unavailable]`,
-    'c': `> gcc -o main main.c && ./main\nHello, World!\n[Simulated execution - API unavailable]`
+    'javascript': `${inputPrefix}> node main.js\nHello, World!\n[Simulated execution - API unavailable]`,
+    'python': `${inputPrefix}> python main.py\nHello, World!\n[Simulated execution - API unavailable]`,
+    'java': `${inputPrefix}> javac Main.java && java Main\nHello, World!\n[Simulated execution - API unavailable]`,
+    'cpp': `${inputPrefix}> g++ -o main main.cpp && ./main\nHello, World!\n[Simulated execution - API unavailable]`,
+    'c': `${inputPrefix}> gcc -o main main.c && ./main\nHello, World!\n[Simulated execution - API unavailable]`
   };
   
-  const defaultMock = `> Executing ${language} code...\nCode execution simulation\n[Simulated execution - API unavailable]`;
+  const defaultMock = `${inputPrefix}> Executing ${language} code...\nCode execution simulation\n[Simulated execution - API unavailable]`;
   
   if (code.includes('console.log') || code.includes('print') || code.includes('System.out') || code.includes('cout') || code.includes('printf')) {
     return mockResults[language] || defaultMock;
   }
   
-  return `Code compiled and executed successfully.\n[Simulated execution - API unavailable]`;
+  return `${inputPrefix}Code compiled and executed successfully.\n[Simulated execution - API unavailable]`;
 };
 
 const getLanguageMapping = (language: string): string => {
