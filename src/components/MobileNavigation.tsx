@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Compass, Plus, MessageCircle, User,X, Search, Bell, Code } from 'lucide-react';
+import { Home, Compass, Plus, MessageCircle, User,X, Search, Bell, Code, Award } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import UserSearchModal from './UserSearchModal';
@@ -76,9 +76,8 @@ const MobileNavigation = () => {
   const navigationItems = [
     { icon: Home, label: 'Home', path: '/home' },
     { icon: Plus, label: 'Create', path: '/create' },
-    // { icon: Compass, label: 'Explore', path: '/explore' },
+    { icon: Award, label: 'Challenges', path: '/challenges' },
     { icon: MessageCircle, label: 'Messages', path: '/messages' },
-    // { icon: User, label: 'Profile', path: `/profile/${user?.username}` },
   ];
 
   const handleUserSelect = (selectedUser: any) => {

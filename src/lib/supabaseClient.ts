@@ -433,6 +433,196 @@ export interface Database {
           created_at?: string;
         };
       };
+      challenges: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          difficulty: 'easy' | 'medium' | 'hard';
+          category: string;
+          tags: string[];
+          starter_code: string;
+          solution_code: string;
+          time_limit_ms: number;
+          memory_limit_mb: number;
+          points: number;
+          created_by: string;
+          is_approved: boolean;
+          is_featured: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description: string;
+          difficulty: 'easy' | 'medium' | 'hard';
+          category: string;
+          tags?: string[];
+          starter_code: string;
+          solution_code: string;
+          time_limit_ms?: number;
+          memory_limit_mb?: number;
+          points?: number;
+          created_by: string;
+          is_approved?: boolean;
+          is_featured?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          description?: string;
+          difficulty?: 'easy' | 'medium' | 'hard';
+          category?: string;
+          tags?: string[];
+          starter_code?: string;
+          solution_code?: string;
+          time_limit_ms?: number;
+          memory_limit_mb?: number;
+          points?: number;
+          created_by?: string;
+          is_approved?: boolean;
+          is_featured?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      test_cases: {
+        Row: {
+          id: string;
+          challenge_id: string;
+          input: string;
+          expected_output: string;
+          is_sample: boolean;
+          order_index: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          challenge_id: string;
+          input: string;
+          expected_output: string;
+          is_sample?: boolean;
+          order_index?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          challenge_id?: string;
+          input?: string;
+          expected_output?: string;
+          is_sample?: boolean;
+          order_index?: number;
+          created_at?: string;
+        };
+      };
+      submissions: {
+        Row: {
+          id: string;
+          challenge_id: string;
+          user_id: string;
+          code: string;
+          language: string;
+          status: 'pending' | 'running' | 'accepted' | 'wrong_answer' | 'time_limit_exceeded' | 'memory_limit_exceeded' | 'runtime_error' | 'compilation_error';
+          execution_time_ms: number | null;
+          memory_used_mb: number | null;
+          test_cases_passed: number;
+          test_cases_total: number;
+          error_message: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          challenge_id: string;
+          user_id: string;
+          code: string;
+          language: string;
+          status?: 'pending' | 'running' | 'accepted' | 'wrong_answer' | 'time_limit_exceeded' | 'memory_limit_exceeded' | 'runtime_error' | 'compilation_error';
+          execution_time_ms?: number | null;
+          memory_used_mb?: number | null;
+          test_cases_passed?: number;
+          test_cases_total?: number;
+          error_message?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          challenge_id?: string;
+          user_id?: string;
+          code?: string;
+          language?: string;
+          status?: 'pending' | 'running' | 'accepted' | 'wrong_answer' | 'time_limit_exceeded' | 'memory_limit_exceeded' | 'runtime_error' | 'compilation_error';
+          execution_time_ms?: number | null;
+          memory_used_mb?: number | null;
+          test_cases_passed?: number;
+          test_cases_total?: number;
+          error_message?: string | null;
+          created_at?: string;
+        };
+      };
+      user_challenge_stats: {
+        Row: {
+          id: string;
+          user_id: string;
+          challenge_id: string;
+          attempts: number;
+          solved: boolean;
+          best_execution_time_ms: number | null;
+          best_memory_used_mb: number | null;
+          points_earned: number;
+          last_attempted_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          challenge_id: string;
+          attempts?: number;
+          solved?: boolean;
+          best_execution_time_ms?: number | null;
+          best_memory_used_mb?: number | null;
+          points_earned?: number;
+          last_attempted_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          challenge_id?: string;
+          attempts?: number;
+          solved?: boolean;
+          best_execution_time_ms?: number | null;
+          best_memory_used_mb?: number | null;
+          points_earned?: number;
+          last_attempted_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      daily_challenges: {
+        Row: {
+          id: string;
+          challenge_id: string;
+          date: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          challenge_id: string;
+          date: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          challenge_id?: string;
+          date?: string;
+          created_at?: string;
+        };
+      };
     };
   };
 }
@@ -458,6 +648,18 @@ export type ForumTopicWithUser = Database['public']['Tables']['forum_topics']['R
 
 export type ForumReplyWithUser = Database['public']['Tables']['forum_replies']['Row'] & {
   profiles: Database['public']['Tables']['profiles']['Row'];
+};
+
+// Challenge helper types
+export type ChallengeWithUser = Database['public']['Tables']['challenges']['Row'] & {
+  profiles: Database['public']['Tables']['profiles']['Row'];
+  test_cases?: Database['public']['Tables']['test_cases']['Row'][];
+  user_stats?: Database['public']['Tables']['user_challenge_stats']['Row'];
+};
+
+export type SubmissionWithUser = Database['public']['Tables']['submissions']['Row'] & {
+  profiles: Database['public']['Tables']['profiles']['Row'];
+  challenges: Database['public']['Tables']['challenges']['Row'];
 };
 
 // Add SQL function for incrementing topic replies

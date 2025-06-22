@@ -14,6 +14,8 @@ import SavedPage from './pages/SavedPage';
 import TrendingPage from './pages/TrendingPage';
 import SettingsPage from './pages/SettingsPage';
 import MessagesPage from './pages/MessagesPage';
+import ChallengesPage from './pages/ChallengesPage';
+import ChallengeDetailsPage from './pages/ChallengeDetailsPage';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -154,6 +156,20 @@ function AppContent() {
         <ProtectedRoute>
           <Layout>
             <ProfilePage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/challenges" element={
+        <ProtectedRoute>
+          <Layout>
+            <ChallengesPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/challenges/:id" element={
+        <ProtectedRoute>
+          <Layout>
+            <ChallengeDetailsPage />
           </Layout>
         </ProtectedRoute>
       } />
