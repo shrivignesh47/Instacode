@@ -4,16 +4,16 @@ import { Download, Upload } from 'lucide-react';
 
 interface VideoProcessorProps {
   videoBlob: Blob;
+  code?: string;
+  language?: string;
   onCreatePost: () => void;
-  code: string;
-  language: string;
 }
 
 const VideoProcessor: React.FC<VideoProcessorProps> = ({
   videoBlob,
-  onCreatePost,
-  code,
-  language
+  code = '',
+  language = 'javascript',
+  onCreatePost
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -104,13 +104,13 @@ const VideoProcessor: React.FC<VideoProcessorProps> = ({
             <label className="block text-sm font-medium text-gray-300 mb-2">Code Snippet</label>
             <div className="h-48 bg-gray-900 rounded border border-gray-600 p-3 overflow-auto">
               <pre className="text-sm text-gray-100 font-mono">
-                <code>{code.slice(0, 500)}{code.length > 500 ? '...' : ''}</code>
+                <code>{code && code.length > 500 ? `${code.slice(0, 500)}...` : code}</code>
               </pre>
             </div>
             
             <div className="mt-2 text-sm text-gray-400">
               <p>Language: {language}</p>
-              <p>Lines: {code.split('\n').length}</p>
+              <p>Lines: {code ? code.split('\n').length : 0}</p>
             </div>
           </div>
         </div>

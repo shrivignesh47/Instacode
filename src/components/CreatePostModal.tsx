@@ -130,7 +130,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         mediaUrl = await uploadFileWithProgress(
           fileToUpload, 
           postType === 'image' ? 'images' : 'videos',
-          (progress) => {
+          (progress: number) => {
             // Map upload progress to 30-70% of total progress
             const mappedProgress = 30 + (progress * 0.4);
             setUploadProgress(mappedProgress);
@@ -146,7 +146,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         projectImageUrl = await uploadFileWithProgress(
           compressedProjectImage, 
           'projects',
-          (progress) => {
+          (progress: number) => {
             // Map upload progress to 75-85% of total progress
             const mappedProgress = 75 + (progress * 0.1);
             setUploadProgress(mappedProgress);

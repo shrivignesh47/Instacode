@@ -1,10 +1,10 @@
+
 import React, { useEffect, useState } from 'react';
 import { X, ChevronRight } from 'lucide-react';
 import DailyChallengeCard from './DailyChallengeCard';
 
 interface RightSidebarProps {
   isCollapsed: boolean;
-  onToggleCollapse: () => void;
   isMobile?: boolean;
   onClose?: () => void;
   screenSize: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
@@ -19,7 +19,6 @@ interface Contest {
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
   isCollapsed,
-  onToggleCollapse,
   isMobile,
   onClose,
   screenSize

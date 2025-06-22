@@ -114,14 +114,19 @@ export const useChallenge = (challengeId: string) => {
             )
           `)
           .eq('id', challengeId)
-          .single();
+          .maybeSingle(); // Changed from .single() to .maybeSingle()
 
         if (challengeError) {
+          // This error would now only be for actual database errors (e.g., network, permissions, multiple rows returned unexpectedly)
           throw challengeError;
         }
 
         if (!challengeData) {
-          throw new Error('Challenge not found');
+          // If no challenge is found, set challenge to null and stop loading.
+          setChallenge(null);
+          setError('Challenge not found'); // Set a specific error message
+          setLoading(false);
+          return; // Exit the function early
         }
 
         // Fetch test cases
@@ -162,6 +167,7 @@ export const useChallenge = (challengeId: string) => {
       } catch (err: any) {
         console.error('Error fetching challenge:', err);
         setError(err.message || 'Failed to load challenge');
+        setChallenge(null); // Ensure challenge is null on error
       } finally {
         setLoading(false);
       }

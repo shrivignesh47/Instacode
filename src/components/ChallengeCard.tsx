@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, Clock, Zap, BarChart, Users, CheckCircle, XCircle } from 'lucide-react';
+import { Award, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { ChallengeWithUser } from '../lib/supabaseClient';
 
 interface ChallengeCardProps {
