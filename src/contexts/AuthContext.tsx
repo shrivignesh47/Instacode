@@ -54,7 +54,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const createDefaultUser = (supabaseUser: SupabaseUser): User => {
-    console.log('Creating default user for:', supabaseUser.id);
     return {
       id: supabaseUser.id,
       username: supabaseUser.user_metadata?.username || supabaseUser.email?.split('@')[0] || 'user',
@@ -84,78 +83,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const convertSupabaseUser = async (supabaseUser: SupabaseUser): Promise<User> => {
-    console.log('Converting Supabase user:', supabaseUser.id);
-    
     try {
-      // Increased timeout to 30 seconds and improved error handling
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Profile query timeout')), 30000)
-      );
-
-      const queryPromise = supabase
+      // Directly query the profile without a timeout race
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', supabaseUser.id)
         .single();
 
-      console.log('Querying profiles table...');
-      
-      try {
-        const { data: profile, error } = await Promise.race([queryPromise, timeoutPromise]);
-
-        if (error) {
-          console.log('Profile query error:', error.message);
-          // If it's a "not found" error, create a default profile
-          if (error.code === 'PGRST116') {
-            console.log('Profile not found, creating default user');
-            return createDefaultUser(supabaseUser);
-          }
-          console.log('Using default user due to error');
+      // If profile not found or there's an error, return default user
+      if (error || !profile) {
+        // If it's a "not found" error, create a default profile
+        if (error && error.code === 'PGRST116') {
           return createDefaultUser(supabaseUser);
         }
-
-        if (profile) {
-          console.log('Profile found, converting to user object');
-          return {
-            id: profile.id,
-            username: profile.username,
-            email: profile.email,
-            avatar: profile.avatar_url || 'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150',
-            bio: profile.bio || '',
-            githubUrl: profile.github_url || '',
-            linkedinUrl: profile.linkedin_url || '',
-            twitterUrl: profile.twitter_url || '',
-            website: profile.website || '',
-            location: profile.location || '',
-            followers: profile.followers_count || 0,
-            following: profile.following_count || 0,
-            posts: profile.posts_count || 0,
-            joinDate: new Date(profile.created_at).toLocaleDateString('en-US', { 
-              year: 'numeric', 
-              month: 'long' 
-            }),
-            verified: false,
-            receiveFollowNotifications: profile.receive_follow_notifications ?? true,
-            receiveMessageNotifications: profile.receive_message_notifications ?? true,
-            receivePostLikeNotifications: profile.receive_post_like_notifications ?? true,
-            receivePostCommentNotifications: profile.receive_post_comment_notifications ?? true,
-            receiveNewPostFromFollowedNotifications: profile.receive_new_post_from_followed_notifications ?? true,
-            leetcodeUsername: profile.leetcode_username || null,
-          };
-        }
-
-        console.log('No profile found, using default user');
-        return createDefaultUser(supabaseUser);
-
-      } catch (raceError) {
-        console.error('Profile query race error:', raceError);
-        console.log('Using default user due to race error');
+        // For any other error, also return default user
         return createDefaultUser(supabaseUser);
       }
 
+      // If profile exists, convert it to our User type
+      return {
+        id: profile.id,
+        username: profile.username,
+        email: profile.email,
+        avatar: profile.avatar_url || 'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150',
+        bio: profile.bio || '',
+        githubUrl: profile.github_url || '',
+        linkedinUrl: profile.linkedin_url || '',
+        twitterUrl: profile.twitter_url || '',
+        website: profile.website || '',
+        location: profile.location || '',
+        followers: profile.followers_count || 0,
+        following: profile.following_count || 0,
+        posts: profile.posts_count || 0,
+        joinDate: new Date(profile.created_at).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long' 
+        }),
+        verified: false,
+        receiveFollowNotifications: profile.receive_follow_notifications ?? true,
+        receiveMessageNotifications: profile.receive_message_notifications ?? true,
+        receivePostLikeNotifications: profile.receive_post_like_notifications ?? true,
+        receivePostCommentNotifications: profile.receive_post_comment_notifications ?? true,
+        receiveNewPostFromFollowedNotifications: profile.receive_new_post_from_followed_notifications ?? true,
+        leetcodeUsername: profile.leetcode_username || null,
+      };
     } catch (error) {
-      console.error('Error in convertSupabaseUser:', error);
-      console.log('Using default user due to exception');
+      // For any unexpected errors, return default user
       return createDefaultUser(supabaseUser);
     }
   };
@@ -469,33 +443,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize auth state and listen for changes
   useEffect(() => {
     let mounted = true;
-    console.log('AuthContext: Initializing auth state');
 
     const initializeAuth = async () => {
       try {
-        console.log('AuthContext: Getting session from Supabase');
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('AuthContext: Session retrieved:', session ? 'exists' : 'null');
         
         if (mounted) {
           if (session?.user) {
-            console.log('AuthContext: Converting user from session');
             const convertedUser = await convertSupabaseUser(session.user);
-            console.log('AuthContext: User converted successfully');
             if (mounted) {
               setUser(convertedUser);
               setIsAuthenticated(true);
             }
-          } else {
-            console.log('AuthContext: No session found');
           }
-          console.log('AuthContext: Setting loading to false');
           setLoading(false);
         }
       } catch (error) {
-        console.error('AuthContext: Error initializing auth:', error);
+        console.error('Error initializing auth:', error);
         if (mounted) {
-          console.log('AuthContext: Setting loading to false due to error');
           setLoading(false);
         }
       }
@@ -505,41 +470,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session: Session | null) => {
-        console.log('AuthContext: Auth state changed:', event, session ? 'has session' : 'no session');
-        
         if (!mounted) return;
 
         if (session?.user) {
-          console.log('AuthContext: Converting user from auth state change');
           const convertedUser = await convertSupabaseUser(session.user);
-          console.log('AuthContext: Auth state change conversion completed');
           if (mounted) {
             setUser(convertedUser);
             setIsAuthenticated(true);
           }
         } else {
           if (mounted) {
-            console.log('AuthContext: Clearing user and authenticated from auth state change');
             setUser(null);
             setIsAuthenticated(false);
           }
         }
         
         if (mounted) {
-          console.log('AuthContext: Setting loading to false after auth state change');
           setLoading(false);
         }
       }
     );
 
     return () => {
-      console.log('AuthContext: Cleanup - unmounting');
       mounted = false;
       subscription.unsubscribe();
     };
   }, []);
-
-  console.log('AuthContext: Rendering with loading:', loading, 'isAuthenticated:', isAuthenticated, 'user:', user?.username);
 
   return (
     <AuthContext.Provider value={{ 
