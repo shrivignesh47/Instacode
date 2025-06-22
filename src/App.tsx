@@ -14,9 +14,16 @@ import SavedPage from './pages/SavedPage';
 import TrendingPage from './pages/TrendingPage';
 import SettingsPage from './pages/SettingsPage';
 import MessagesPage from './pages/MessagesPage';
-import ChallengesPage from './pages/ChallengesPage';
-import ChallengeDetailsPage from './pages/ChallengeDetailsPage';
-import LeaderboardPage from './pages/LeaderboardPage';
+
+// New problem and challenge pages
+import ProblemsPage from './pages/ProblemsPage';
+import ProblemDetailPage from './pages/ProblemDetailPage';
+import CreateProblemPage from './pages/CreateProblemPage';
+import CodingChallengesPage from './pages/CodingChallengesPage';
+import CodingChallengeDetailPage from './pages/CodingChallengeDetailPage';
+import CreateChallengePage from './pages/CreateChallengePagePage';
+import GlobalLeaderboardPage from './pages/GlobalLeaderboardPage';
+
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -160,24 +167,58 @@ function AppContent() {
           </Layout>
         </ProtectedRoute>
       } />
+      
+      {/* Problem Routes */}
+      <Route path="/problems" element={
+        <ProtectedRoute>
+          <Layout>
+            <ProblemsPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/problems/:slug" element={
+        <ProtectedRoute>
+          <Layout>
+            <ProblemDetailPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/problems/create" element={
+        <ProtectedRoute>
+          <Layout>
+            <CreateProblemPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      
+      {/* Challenge Routes */}
       <Route path="/challenges" element={
         <ProtectedRoute>
           <Layout>
-            <ChallengesPage />
+            <CodingChallengesPage />
           </Layout>
         </ProtectedRoute>
       } />
       <Route path="/challenges/:id" element={
         <ProtectedRoute>
           <Layout>
-            <ChallengeDetailsPage />
+            <CodingChallengeDetailPage />
           </Layout>
         </ProtectedRoute>
       } />
+      <Route path="/challenges/create" element={
+        <ProtectedRoute>
+          <Layout>
+            <CreateChallengePage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      
+      {/* Leaderboard Route */}
       <Route path="/leaderboard" element={
         <ProtectedRoute>
           <Layout>
-            <LeaderboardPage />
+            <GlobalLeaderboardPage />
           </Layout>
         </ProtectedRoute>
       } />

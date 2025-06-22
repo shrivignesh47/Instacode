@@ -433,16 +433,18 @@ export interface Database {
           created_at?: string;
         };
       };
-      challenges: {
+      // New tables for coding problems and challenges
+      problems: {
         Row: {
           id: string;
           title: string;
+          slug: string;
           description: string;
           difficulty: 'easy' | 'medium' | 'hard';
-          category: string;
+          category: string | null;
           tags: string[];
-          starter_code: string;
-          solution_code: string;
+          starter_code: string | null;
+          solution_code: string | null;
           time_limit_ms: number;
           memory_limit_mb: number;
           points: number;
@@ -455,12 +457,13 @@ export interface Database {
         Insert: {
           id?: string;
           title: string;
+          slug?: string;
           description: string;
           difficulty: 'easy' | 'medium' | 'hard';
-          category: string;
+          category?: string | null;
           tags?: string[];
-          starter_code: string;
-          solution_code: string;
+          starter_code?: string | null;
+          solution_code?: string | null;
           time_limit_ms?: number;
           memory_limit_mb?: number;
           points?: number;
@@ -473,12 +476,13 @@ export interface Database {
         Update: {
           id?: string;
           title?: string;
+          slug?: string;
           description?: string;
           difficulty?: 'easy' | 'medium' | 'hard';
-          category?: string;
+          category?: string | null;
           tags?: string[];
-          starter_code?: string;
-          solution_code?: string;
+          starter_code?: string | null;
+          solution_code?: string | null;
           time_limit_ms?: number;
           memory_limit_mb?: number;
           points?: number;
@@ -489,10 +493,80 @@ export interface Database {
           updated_at?: string;
         };
       };
-      test_cases: {
+      coding_challenges: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          difficulty: 'easy' | 'medium' | 'hard' | null;
+          category: string | null;
+          tags: string[];
+          start_date: string | null;
+          end_date: string | null;
+          is_active: boolean;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description: string;
+          difficulty?: 'easy' | 'medium' | 'hard' | null;
+          category?: string | null;
+          tags?: string[];
+          start_date?: string | null;
+          end_date?: string | null;
+          is_active?: boolean;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          description?: string;
+          difficulty?: 'easy' | 'medium' | 'hard' | null;
+          category?: string | null;
+          tags?: string[];
+          start_date?: string | null;
+          end_date?: string | null;
+          is_active?: boolean;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      coding_challenge_problems: {
         Row: {
           id: string;
           challenge_id: string;
+          problem_id: string;
+          order_index: number;
+          points_multiplier: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          challenge_id: string;
+          problem_id: string;
+          order_index?: number;
+          points_multiplier?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          challenge_id?: string;
+          problem_id?: string;
+          order_index?: number;
+          points_multiplier?: number;
+          created_at?: string;
+        };
+      };
+      problem_test_cases: {
+        Row: {
+          id: string;
+          problem_id: string;
           input: string;
           expected_output: string;
           is_sample: boolean;
@@ -501,7 +575,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          challenge_id: string;
+          problem_id: string;
           input: string;
           expected_output: string;
           is_sample?: boolean;
@@ -510,7 +584,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          challenge_id?: string;
+          problem_id?: string;
           input?: string;
           expected_output?: string;
           is_sample?: boolean;
@@ -518,11 +592,12 @@ export interface Database {
           created_at?: string;
         };
       };
-      submissions: {
+      problem_submissions: {
         Row: {
           id: string;
-          challenge_id: string;
           user_id: string;
+          problem_id: string;
+          challenge_id: string | null;
           code: string;
           language: string;
           status: 'pending' | 'running' | 'accepted' | 'wrong_answer' | 'time_limit_exceeded' | 'memory_limit_exceeded' | 'runtime_error' | 'compilation_error';
@@ -535,8 +610,9 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          challenge_id: string;
           user_id: string;
+          problem_id: string;
+          challenge_id?: string | null;
           code: string;
           language: string;
           status?: 'pending' | 'running' | 'accepted' | 'wrong_answer' | 'time_limit_exceeded' | 'memory_limit_exceeded' | 'runtime_error' | 'compilation_error';
@@ -549,8 +625,9 @@ export interface Database {
         };
         Update: {
           id?: string;
-          challenge_id?: string;
           user_id?: string;
+          problem_id?: string;
+          challenge_id?: string | null;
           code?: string;
           language?: string;
           status?: 'pending' | 'running' | 'accepted' | 'wrong_answer' | 'time_limit_exceeded' | 'memory_limit_exceeded' | 'runtime_error' | 'compilation_error';
@@ -562,65 +639,135 @@ export interface Database {
           created_at?: string;
         };
       };
-      user_challenge_stats: {
+      user_problem_stats: {
         Row: {
           id: string;
           user_id: string;
-          challenge_id: string;
+          problem_id: string;
           attempts: number;
           solved: boolean;
           best_execution_time_ms: number | null;
           best_memory_used_mb: number | null;
           points_earned: number;
-          last_attempted_at: string;
+          last_attempted_at: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          challenge_id: string;
+          problem_id: string;
           attempts?: number;
           solved?: boolean;
           best_execution_time_ms?: number | null;
           best_memory_used_mb?: number | null;
           points_earned?: number;
-          last_attempted_at?: string;
+          last_attempted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          challenge_id?: string;
+          problem_id?: string;
           attempts?: number;
           solved?: boolean;
           best_execution_time_ms?: number | null;
           best_memory_used_mb?: number | null;
           points_earned?: number;
-          last_attempted_at?: string;
+          last_attempted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
       };
-      daily_challenges: {
+      daily_problems: {
         Row: {
           id: string;
-          challenge_id: string;
+          problem_id: string;
           date: string;
           created_at: string;
         };
         Insert: {
           id?: string;
-          challenge_id: string;
+          problem_id: string;
           date: string;
           created_at?: string;
         };
         Update: {
           id?: string;
-          challenge_id?: string;
+          problem_id?: string;
           date?: string;
           created_at?: string;
+        };
+      };
+      coding_challenge_leaderboards: {
+        Row: {
+          id: string;
+          challenge_id: string;
+          user_id: string;
+          total_points: number;
+          problems_solved: number;
+          problems_attempted: number;
+          rank: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          challenge_id: string;
+          user_id: string;
+          total_points?: number;
+          problems_solved?: number;
+          problems_attempted?: number;
+          rank?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          challenge_id?: string;
+          user_id?: string;
+          total_points?: number;
+          problems_solved?: number;
+          problems_attempted?: number;
+          rank?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      problem_imports: {
+        Row: {
+          id: string;
+          user_id: string;
+          file_name: string;
+          file_size: number;
+          problems_count: number;
+          status: 'pending' | 'processing' | 'completed' | 'failed';
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          file_name: string;
+          file_size: number;
+          problems_count?: number;
+          status?: 'pending' | 'processing' | 'completed' | 'failed';
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          file_name?: string;
+          file_size?: number;
+          problems_count?: number;
+          status?: 'pending' | 'processing' | 'completed' | 'failed';
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
       };
     };
@@ -650,16 +797,41 @@ export type ForumReplyWithUser = Database['public']['Tables']['forum_replies']['
   profiles: Database['public']['Tables']['profiles']['Row'];
 };
 
-// Challenge helper types
-export type ChallengeWithUser = Database['public']['Tables']['challenges']['Row'] & {
+// Problem and Challenge helper types
+export type ProblemWithUser = Database['public']['Tables']['problems']['Row'] & {
   profiles: Database['public']['Tables']['profiles']['Row'];
-  test_cases?: Database['public']['Tables']['test_cases']['Row'][];
-  user_stats?: Database['public']['Tables']['user_challenge_stats']['Row'];
+  test_cases?: Database['public']['Tables']['problem_test_cases']['Row'][];
+  user_stats?: Database['public']['Tables']['user_problem_stats']['Row'];
 };
 
-export type SubmissionWithUser = Database['public']['Tables']['submissions']['Row'] & {
+export type CodingChallengeWithUser = Database['public']['Tables']['coding_challenges']['Row'] & {
   profiles: Database['public']['Tables']['profiles']['Row'];
-  challenges: Database['public']['Tables']['challenges']['Row'];
+  problems_count?: number;
+  participants_count?: number;
+};
+
+export type CodingChallengeWithProblems = Database['public']['Tables']['coding_challenges']['Row'] & {
+  problems: (Database['public']['Tables']['problems']['Row'] & {
+    order_index: number;
+    points_multiplier: number;
+  })[];
+};
+
+export type ProblemSubmissionWithUser = Database['public']['Tables']['problem_submissions']['Row'] & {
+  profiles: Database['public']['Tables']['profiles']['Row'];
+  problems: Database['public']['Tables']['problems']['Row'];
+};
+
+export type CodingChallengeLeaderboardWithUser = Database['public']['Tables']['coding_challenge_leaderboards']['Row'] & {
+  profiles: Database['public']['Tables']['profiles']['Row'];
+};
+
+export type DailyProblemWithProblem = Database['public']['Tables']['daily_problems']['Row'] & {
+  problems: Database['public']['Tables']['problems']['Row'];
+};
+
+export type ProblemImportWithUser = Database['public']['Tables']['problem_imports']['Row'] & {
+  profiles: Database['public']['Tables']['profiles']['Row'];
 };
 
 // Add SQL function for incrementing topic replies
