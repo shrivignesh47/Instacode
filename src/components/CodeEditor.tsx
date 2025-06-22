@@ -6,7 +6,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 interface CodeEditorProps {
   initialCode?: string;
   language?: string;
-  onCodeChange?: (code: string) => void;
+  onCodeChange?:oo(code: string) => void;
   readOnly?: boolean;
   showRunButton?: boolean;
   height?: string;
