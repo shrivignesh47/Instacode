@@ -89,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Increased timeout to 30 seconds and improved error handling
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Profile query timeout')), 300000)
+        setTimeout(() => reject(new Error('Profile query timeout')), 3000)
       );
 
       const queryPromise = supabase
