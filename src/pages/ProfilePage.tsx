@@ -17,6 +17,7 @@ import PostOptionsDropdown from '../components/PostOptionsDropdown';
 import FollowersModal from '../components/FollowersModal';
 import FollowingModal from '../components/FollowingModal';
 import LeetCodeStats from '../components/LeetCodeStats';
+import ChallengeStatsDashboard from '../components/ChallengeStatsDashboard';
 import { useProfile } from '../hooks/useProfile';
 import { 
   fetchLeetCodeProfileStats, 
@@ -306,6 +307,11 @@ const ProfilePage = () => {
             onFollowingClick={() => setIsFollowingModalOpen(true)}
             onMessageClick={handleMessageClick}
           />
+        </div>
+
+        {/* Challenge Stats Dashboard */}
+        <div className="mb-6">
+          <ChallengeStatsDashboard userId={profile.id} />
         </div>
 
         {/* LeetCode Stats Section */}

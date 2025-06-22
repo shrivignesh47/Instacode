@@ -16,6 +16,7 @@ import SettingsPage from './pages/SettingsPage';
 import MessagesPage from './pages/MessagesPage';
 import ChallengesPage from './pages/ChallengesPage';
 import ChallengeDetailsPage from './pages/ChallengeDetailsPage';
+import LeaderboardPage from './pages/LeaderboardPage';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -170,6 +171,13 @@ function AppContent() {
         <ProtectedRoute>
           <Layout>
             <ChallengeDetailsPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/leaderboard" element={
+        <ProtectedRoute>
+          <Layout>
+            <LeaderboardPage />
           </Layout>
         </ProtectedRoute>
       } />

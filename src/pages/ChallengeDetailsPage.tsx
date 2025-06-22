@@ -89,109 +89,55 @@ const ChallengeDetailsPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!challenge || !user) return;
+    if (!challenge || !user || !id) return;
     
     setIsSubmitting(true);
     setSubmissionStatus('pending');
+    setOutput('Submitting solution...');
     
     try {
-      // Create submission record
-      const { data, error: submissionError } = await supabase
-        .from('submissions')
-        .insert({
-          challenge_id: challenge.id,
-          user_id: user.id,
+      // Call the judge-code edge function
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/judge-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabase.auth.getSession().then(res => res.data.session?.access_token)}`
+        },
+        body: JSON.stringify({
+          challengeId: id,
           code,
-          language,
-          status: 'pending',
-          test_cases_passed: 0,
-          test_cases_total: challenge.test_cases?.length || 0
+          language
         })
-        .select()
-        .single();
-        
-      if (submissionError) throw submissionError;
-      
-      // For demo purposes, we'll simulate the judge system
-      // In a real app, this would be handled by a backend service
-      
-      // Run against sample test cases first
-      const results = [];
-      let passedCount = 0;
-      
-      for (const testCase of (challenge.test_cases || [])) {
-        const input = testCase.input;
-        const expectedOutput = testCase.expected_output;
-        
-        // Execute code with test case input
-        const actualOutput = await executeCode(code, language, input);
-        
-        // Compare outputs (simple string comparison)
-        const passed = actualOutput.trim() === expectedOutput.trim();
-        if (passed) passedCount++;
-        
-        results.push({
-          input,
-          expectedOutput,
-          actualOutput,
-          passed
-        });
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit solution');
       }
+
+      const result = await response.json();
       
-      // Update submission status
-      const status = passedCount === (challenge.test_cases?.length || 0) ? 'accepted' : 'wrong_answer';
+      // Update UI with results
+      setSubmissionStatus(result.status);
+      setTestResults(result.test_results || []);
       
-      const { error: updateError } = await supabase
-        .from('submissions')
-        .update({
-          status,
-          test_cases_passed: passedCount,
-          execution_time_ms: 100, // Mock value
-          memory_used_mb: 10 // Mock value
-        })
-        .eq('id', data.id);
-        
-      if (updateError) throw updateError;
-      
-      // Update user stats
-      const { data: existingStats } = await supabase
-        .from('user_challenge_stats')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('challenge_id', challenge.id)
-        .maybeSingle();
-        
-      if (existingStats) {
-        // Update existing stats
-        await supabase
-          .from('user_challenge_stats')
-          .update({
-            attempts: existingStats.attempts + 1,
-            solved: status === 'accepted' ? true : existingStats.solved,
-            points_earned: status === 'accepted' && !existingStats.solved ? challenge.points : existingStats.points_earned,
-            last_attempted_at: new Date().toISOString()
-          })
-          .eq('id', existingStats.id);
+      // Set output message based on status
+      if (result.status === 'accepted') {
+        setOutput(`Success! All ${result.test_cases_passed}/${result.test_cases_total} test cases passed.`);
+      } else if (result.status === 'compilation_error') {
+        setOutput(`Compilation Error: ${result.error_message}`);
+      } else if (result.status === 'runtime_error') {
+        setOutput(`Runtime Error: ${result.error_message}`);
+      } else if (result.status === 'time_limit_exceeded') {
+        setOutput(`Time Limit Exceeded: Your solution took too long to execute.`);
       } else {
-        // Create new stats
-        await supabase
-          .from('user_challenge_stats')
-          .insert({
-            user_id: user.id,
-            challenge_id: challenge.id,
-            attempts: 1,
-            solved: status === 'accepted',
-            points_earned: status === 'accepted' ? challenge.points : 0,
-            last_attempted_at: new Date().toISOString()
-          });
+        setOutput(`Failed: ${result.test_cases_passed}/${result.test_cases_total} test cases passed.`);
       }
-      
-      setSubmissionStatus(status);
-      setTestResults(results);
       
     } catch (error) {
       console.error('Error submitting solution:', error);
       setSubmissionStatus('error');
+      setOutput(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -569,15 +515,21 @@ const ChallengeDetailsPage = () => {
                       <div>
                         <div className="text-xs text-gray-400 mb-1">Expected Output:</div>
                         <pre className="bg-gray-800 p-2 rounded text-gray-300 text-xs overflow-x-auto">
-                          {result.expectedOutput}
+                          {result.expectedOutput || result.expected_output}
                         </pre>
                       </div>
                       <div>
                         <div className="text-xs text-gray-400 mb-1">Your Output:</div>
                         <pre className="bg-gray-800 p-2 rounded text-gray-300 text-xs overflow-x-auto">
-                          {result.actualOutput}
+                          {result.actualOutput || result.actual_output}
                         </pre>
                       </div>
+                      {result.execution_time_ms && (
+                        <div className="flex items-center justify-between text-xs text-gray-400">
+                          <span>Execution time: {result.execution_time_ms}ms</span>
+                          <span>Memory used: {result.memory_used_mb?.toFixed(2) || 0}MB</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
