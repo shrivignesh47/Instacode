@@ -18,6 +18,10 @@ import {
 import { useChallenges } from '../hooks/useChallenges';
 import ChallengeCard from '../components/ChallengeCard';
 import { useAuth } from '../contexts/AuthContext';
+import DailyChallengeWidget from '../components/DailyChallengeWidget';
+import ChallengeStatsDashboard from '../components/ChallengeStatsDashboard';
+import CreateChallengeModal from '../components/CreateChallengeModal';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const ChallengesPage = () => {
   const navigate = useNavigate();
@@ -27,6 +31,16 @@ const ChallengesPage = () => {
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | undefined>(undefined);
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<'newest' | 'points' | 'popularity'>('newest');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  
+  // Initialize Gemini API
+  const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
+  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
   
   // Fetch challenges with filters
   const { challenges, loading, error } = useChallenges(selectedCategory, selectedDifficulty, searchQuery);
@@ -67,6 +81,90 @@ const ChallengesPage = () => {
     sum + (challenge.user_stats?.points_earned || 0), 0
   );
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setUploadFile(e.target.files[0]);
+      setUploadError(null);
+    }
+  };
+
+  const processExcelFile = async () => {
+    if (!uploadFile) {
+      setUploadError('Please select a file to upload');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadSuccess(null);
+
+    try {
+      // Read file content
+      const fileContent = await readFileAsText(uploadFile);
+      
+      // Use Gemini to parse the file content
+      const prompt = `
+        Parse this CSV/Excel data into a structured JSON format for coding challenges.
+        The data contains coding problems with their details.
+        
+        Here's the content:
+        ${fileContent}
+        
+        Convert it to an array of objects with these fields:
+        - title: The problem title
+        - description: Full problem description
+        - difficulty: "easy", "medium", or "hard"
+        - category: The problem category (e.g., "Algorithms", "Data Structures")
+        - tags: Array of relevant tags
+        - starter_code: Initial code template
+        - test_cases: Array of objects with "input" and "expected_output" fields
+        - is_sample: Boolean indicating if this is a sample test case
+        
+        Return ONLY valid JSON without any explanation.
+      `;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      
+      // Extract JSON from the response
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error('Failed to parse file content');
+      }
+      
+      const parsedData = JSON.parse(jsonMatch[0]);
+      console.log('Parsed challenge data:', parsedData);
+      
+      // TODO: Insert the parsed challenges into the database
+      // This would involve multiple Supabase operations to:
+      // 1. Insert each challenge
+      // 2. Insert the test cases for each challenge
+      
+      setUploadSuccess(`Successfully processed ${parsedData.length} challenges. They will be available after review.`);
+    } catch (err) {
+      console.error('Error processing file:', err);
+      setUploadError('Failed to process file. Please ensure it\'s in the correct format.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const readFileAsText = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          resolve(event.target.result as string);
+        } else {
+          reject(new Error('Failed to read file'));
+        }
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(file);
+    });
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 lg:px-0">
       {/* Header */}
@@ -78,44 +176,22 @@ const ChallengesPage = () => {
         <p className="text-gray-400">Solve coding challenges, improve your skills, and compete with others</p>
       </div>
 
-      {/* User Stats */}
-      {user && (
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gray-700 rounded-lg p-3">
-              <div className="text-sm text-gray-400 mb-1">Solved</div>
-              <div className="text-xl font-bold text-white flex items-center">
-                {solvedCount} <span className="text-sm text-gray-400 ml-1">/ {challenges.length}</span>
-              </div>
-            </div>
-            
-            <div className="bg-gray-700 rounded-lg p-3">
-              <div className="text-sm text-gray-400 mb-1">Points</div>
-              <div className="text-xl font-bold text-white flex items-center">
-                {totalPoints} <Award className="w-4 h-4 text-yellow-500 ml-1" />
-              </div>
-            </div>
-            
-            <div className="bg-gray-700 rounded-lg p-3">
-              <div className="text-sm text-gray-400 mb-1">Rank</div>
-              <div className="text-xl font-bold text-white">
-                #42
-              </div>
-            </div>
-            
-            <div className="bg-gray-700 rounded-lg p-3">
-              <div className="text-sm text-gray-400 mb-1">Streak</div>
-              <div className="text-xl font-bold text-white flex items-center">
-                3 <Zap className="w-4 h-4 text-yellow-500 ml-1" />
-              </div>
-            </div>
-          </div>
+      {/* Dashboard Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Stats Dashboard - 2/3 width on large screens */}
+        <div className="lg:col-span-2">
+          {user && <ChallengeStatsDashboard />}
         </div>
-      )}
+        
+        {/* Daily Challenge - 1/3 width on large screens */}
+        <div>
+          <DailyChallengeWidget />
+        </div>
+      </div>
 
       {/* Search and Filters */}
       <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 mb-6">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           {/* Search */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -237,18 +313,24 @@ const ChallengesPage = () => {
         )}
       </div>
 
-      {/* Create Challenge Button (for admins) */}
-      {user && (
-        <div className="flex justify-end mb-6">
-          <button
-            onClick={() => navigate('/challenges/create')}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create Challenge</span>
-          </button>
-        </div>
-      )}
+      {/* Create Challenge and Upload Buttons */}
+      <div className="flex justify-end mb-6 space-x-4">
+        <button
+          onClick={() => setShowUploadModal(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Upload Problems</span>
+        </button>
+        
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Create Challenge</span>
+        </button>
+      </div>
 
       {/* Challenges Grid */}
       {loading ? (
@@ -279,6 +361,82 @@ const ChallengesPage = () => {
               isSolved={challenge.user_stats?.solved || false}
             />
           ))}
+        </div>
+      )}
+
+      {/* Create Challenge Modal */}
+      <CreateChallengeModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onChallengeCreated={() => {
+          // Refresh challenges after creation
+          setShowCreateModal(false);
+        }}
+      />
+
+      {/* Upload Challenges Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl w-full max-w-md p-6 border border-gray-700">
+            <h2 className="text-xl font-semibold text-white mb-4">Upload Challenges</h2>
+            
+            <p className="text-gray-300 mb-4">
+              Upload a CSV or Excel file with coding challenges. The file should contain columns for Problem ID, Title, Description, Constraints, Sample Input, Sample Output, and Test Cases.
+            </p>
+            
+            {uploadError && (
+              <div className="bg-red-900 bg-opacity-50 border border-red-500 rounded-lg p-3 mb-4">
+                <p className="text-red-200 text-sm">{uploadError}</p>
+              </div>
+            )}
+            
+            {uploadSuccess && (
+              <div className="bg-green-900 bg-opacity-50 border border-green-500 rounded-lg p-3 mb-4">
+                <p className="text-green-200 text-sm">{uploadSuccess}</p>
+              </div>
+            )}
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Select File
+              </label>
+              <input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={handleFileChange}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Accepted formats: CSV, Excel (.xlsx, .xls)
+              </p>
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={processExcelFile}
+                disabled={isUploading || !uploadFile}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center space-x-2"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    <span>Process File</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

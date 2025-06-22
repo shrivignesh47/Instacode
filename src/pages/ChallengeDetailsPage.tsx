@@ -21,6 +21,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import CodeEditor from '../components/CodeEditor';
 import { executeCode, getFileExtension } from '../utils/codeRunner';
+import ChallengeSubmissionsList from '../components/ChallengeSubmissionsList';
 
 const ChallengeDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -194,17 +195,6 @@ const ChallengeDetailsPage = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto px-4 lg:px-0 py-8 flex items-center justify-center">
@@ -373,50 +363,12 @@ const ChallengeDetailsPage = () => {
                     <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
                     <p className="text-gray-300 mb-2">You need to be logged in to view your submissions</p>
                   </div>
-                ) : submissionsLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 text-purple-500 animate-spin mr-2" />
-                    <span className="text-gray-300">Loading submissions...</span>
-                  </div>
-                ) : submissions.length === 0 ? (
-                  <div className="text-center py-6">
-                    <XCircle className="w-12 h-12 text-gray-500 mx-auto mb-3" />
-                    <p className="text-gray-300 mb-2">You haven't submitted any solutions yet</p>
-                  </div>
                 ) : (
-                  <div className="space-y-4">
-                    {submissions.map((submission) => (
-                      <div key={submission.id} className="bg-gray-700 rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-2">
-                            <span className={`${getStatusColor(submission.status)}`}>
-                              {submission.status === 'accepted' ? (
-                                <CheckCircle className="w-4 h-4" />
-                              ) : (
-                                <XCircle className="w-4 h-4" />
-                              )}
-                            </span>
-                            <span className={`text-sm font-medium ${getStatusColor(submission.status)}`}>
-                              {submission.status.replace('_', ' ').toUpperCase()}
-                            </span>
-                          </div>
-                          <span className="text-xs text-gray-400">
-                            {formatDate(submission.created_at)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-gray-400">
-                          <div className="flex space-x-4">
-                            <span>Language: {submission.language}</span>
-                            <span>Runtime: {submission.execution_time_ms || 0}ms</span>
-                            <span>Memory: {submission.memory_used_mb || 0}MB</span>
-                          </div>
-                          <div>
-                            {submission.test_cases_passed}/{submission.test_cases_total} test cases
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <ChallengeSubmissionsList
+                    submissions={submissions}
+                    loading={submissionsLoading}
+                    error={null}
+                  />
                 )}
               </div>
             )}

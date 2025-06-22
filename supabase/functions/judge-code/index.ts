@@ -251,6 +251,7 @@ serve(async (req: Request) => {
       .update({
         status,
         test_cases_passed: passedCount,
+        test_cases_total: testCases.length,
         execution_time_ms: avgExecutionTime,
         memory_used_mb: maxMemoryUsed / (1024 * 1024), // Convert bytes to MB
         error_message: errorMessage,

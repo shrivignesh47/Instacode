@@ -202,7 +202,7 @@ export const useSubmissions = (challengeId?: string, userId?: string) => {
           `)
           .order('created_at', { ascending: false });
 
-        if (challengeId) {
+        if (challengeId && challengeId !== 'create') {
           query = query.eq('challenge_id', challengeId);
         }
 
