@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Square, Copy, Download, Maximize2, Minimize2, Zap, Eye, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { executeCode, getFileExtension } from '../utils/codeRunner';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import Editor from "@monaco-editor/react";
 
 interface CodeEditorProps {
   initialCode?: string;
@@ -29,8 +30,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [isVisualizing, setIsVisualizing] = useState(false);
   const [visualizationSteps, setVisualizationSteps] = useState<any[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
+  
   // Initialize Gemini API
   const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
@@ -41,9 +41,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }, [code, onCodeChange]);
 
-  const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newCode = e.target.value;
-    setCode(newCode);
+  const handleCodeChange = (value: string | undefined) => {
+    if (value !== undefined) {
+      setCode(value);
+    }
   };
 
   const runCode = async () => {
@@ -186,11 +187,48 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   };
 
-  const editorClasses = `
-    w-full p-4 bg-gray-900 text-gray-100 font-mono text-sm border border-gray-600 rounded-lg
-    focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent
-    resize-none overflow-auto
-  `;
+  // Map language to Monaco editor language
+  const getMonacoLanguage = (lang: string) => {
+    const mapping: Record<string, string> = {
+      'javascript': 'javascript',
+      'typescript': 'typescript',
+      'python': 'python',
+      'java': 'java',
+      'cpp': 'cpp',
+      'c': 'c',
+      'csharp': 'csharp',
+      'go': 'go',
+      'rust': 'rust',
+      'php': 'php',
+      'ruby': 'ruby',
+      'html': 'html',
+      'css': 'css',
+      'sql': 'sql'
+    };
+    return mapping[lang] || lang;
+  };
+
+  // Monaco editor options
+  const editorOptions = {
+    fontSize: fontSize,
+    minimap: { enabled: false },
+    scrollBeyondLastLine: false,
+    automaticLayout: true,
+    tabSize: 2,
+    wordWrap: 'on' as const,
+    readOnly: readOnly,
+    lineNumbers: 'on' as const,
+    renderLineHighlight: 'all' as const,
+    scrollbar: {
+      useShadows: false,
+      verticalScrollbarSize: 10,
+      horizontalScrollbarSize: 10
+    },
+    suggestOnTriggerCharacters: true,
+    acceptSuggestionOnEnter: 'on' as const,
+    quickSuggestions: true,
+    snippetSuggestions: 'inline' as const
+  };
 
   return (
     <div className={`${isFullscreen ? 'fixed inset-0 z-50 bg-gray-900 p-4' : 'relative'}`}>
@@ -278,36 +316,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
         {/* Editor */}
         <div className="relative">
-          <textarea
-            ref={textareaRef}
+          <Editor
+            height={height}
+            language={getMonacoLanguage(language)}
             value={code}
             onChange={handleCodeChange}
-            placeholder={`Write your ${language} code here...`}
-            className={editorClasses}
-            style={{ 
-              height: isFullscreen ? 'calc(60vh - 100px)' : height,
-              fontSize: `${fontSize}px`,
-              lineHeight: '1.5',
-              tabSize: 2
-            }}
-            readOnly={readOnly}
-            spellCheck={false}
-            onKeyDown={(e) => {
-              if (e.key === 'Tab') {
-                e.preventDefault();
-                const start = e.currentTarget.selectionStart;
-                const end = e.currentTarget.selectionEnd;
-                const newCode = code.substring(0, start) + '  ' + code.substring(end);
-                setCode(newCode);
-                
-                // Set cursor position after the inserted spaces
-                setTimeout(() => {
-                  if (textareaRef.current) {
-                    textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 2;
-                  }
-                }, 0);
-              }
-            }}
+            options={editorOptions}
+            theme="vs-dark"
+            className="monaco-editor"
           />
         </div>
 
