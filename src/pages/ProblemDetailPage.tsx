@@ -266,6 +266,20 @@ const ProblemDetailPage = () => {
                   </div>
                 </div>
 
+                {/* Starter Code */}
+                {problem.starter_code && (
+                  <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                    <h2 className="text-lg font-semibold text-white mb-4">Starter Code</h2>
+                    <CodeEditor
+                      initialCode={problem.starter_code}
+                      language={language}
+                      readOnly={true}
+                      showRunButton={false}
+                      height="200px"
+                    />
+                  </div>
+                )}
+
                 {/* Sample Test Cases */}
                 <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
                   <h2 className="text-lg font-semibold text-white mb-4">Sample Test Cases</h2>
@@ -335,7 +349,7 @@ const ProblemDetailPage = () => {
           <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
             <div className="px-4 py-3 bg-gray-700 border-b border-gray-600 flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <span className="text-sm font-medium text-gray-300">Solution</span>
+                <span className="text-sm font-medium text-gray-300">Your Solution</span>
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
