@@ -54,7 +54,7 @@ serve(async (req) => {
     console.log(`Processing submission for problem ${problemId}, language: ${language}`);
 
     const { data: problem, error: problemError } = await supabaseClient
-      .from("problems").select("*").eq("id", problemId).single();
+      .from("problems").select("*, starter_code").eq("id", problemId).single();
     if (problemError || !problem) {
       return new Response(JSON.stringify({ error: "Problem not found" }), {
         status: 404,
@@ -105,8 +105,8 @@ serve(async (req) => {
         const languageId = mapLanguageToJudge0Id(language);
         console.log(`Mapped language ${language} to Judge0 ID: ${languageId}`);
 
-        // Prepare code with proper entry point based on language
-        const preparedCode = prepareCodeForLanguage(code, language);
+        // Prepare code with proper entry point based on language and starter code
+        const preparedCode = prepareCodeForLanguage(code, language, problem.starter_code || '');
         
         const judge0Request = {
           language_id: languageId,
@@ -246,37 +246,179 @@ function mapLanguageToJudge0Id(language: string): number {
 }
 
 // Prepare code for different languages to ensure proper execution
-function prepareCodeForLanguage(code: string, language: string): string {
+function prepareCodeForLanguage(code: string, language: string, starterCode: string): string {
   switch (language) {
+    case 'javascript':
+      // For JavaScript, we need to parse the input and call the function
+      return `
+// Starter code (if any)
+${starterCode}
+
+// User's solution code
+${code}
+
+// Test runner
+const input = process.stdin.read();
+if (input) {
+  try {
+    // Parse the input string to JavaScript objects
+    const parsedInput = JSON.parse(input.replace(/'/g, '"'));
+    
+    // Handle different input formats
+    let result;
+    if (Array.isArray(parsedInput)) {
+      // If input is a single array
+      result = reverseString(parsedInput);
+    } else if (typeof parsedInput === 'string') {
+      // If input is a string
+      result = reverseString(parsedInput);
+    } else if (Array.isArray(parsedInput[0])) {
+      // If input is an array of arrays
+      const args = parsedInput;
+      result = reverseString(...args);
+    } else {
+      // If input is an array of arguments
+      const args = parsedInput;
+      result = reverseString(...args);
+    }
+    
+    // Output the result as a JSON string
+    console.log(JSON.stringify(result));
+  } catch (error) {
+    console.error('Error processing input:', error.message);
+  }
+}
+      `;
+    
+    case 'python':
+      // For Python, we need to parse the input and call the function
+      return `
+# Starter code (if any)
+${starterCode}
+
+# User's solution code
+${code}
+
+# Test runner
+import sys
+import json
+
+input_data = sys.stdin.read().strip()
+if input_data:
+    try:
+        # Parse the input string to Python objects
+        parsed_input = json.loads(input_data.replace("'", '"'))
+        
+        # Handle different input formats
+        if isinstance(parsed_input, list):
+            if len(parsed_input) == 2 and isinstance(parsed_input[1], (int, str)):
+                # If input is [array, target]
+                result = reverseString(*parsed_input)
+            else:
+                # If input is a single array
+                result = reverseString(parsed_input)
+        else:
+            # If input is a single value
+            result = reverseString(parsed_input)
+        
+        # Output the result as a JSON string
+        print(json.dumps(result))
+    except Exception as e:
+        print(f"Error processing input: {str(e)}", file=sys.stderr)
+      `;
+    
     case 'java':
       // If code doesn't have a Main class with main method, wrap it
       if (!code.includes('public class Main') && !code.includes('public static void main')) {
         return `
+import java.util.*;
+import com.google.gson.Gson;
+
 public class Main {
     public static void main(String[] args) {
-        Solution solution = new Solution();
-        // The rest will be handled by the test case input
-        ${code}
+        Scanner scanner = new Scanner(System.in);
+        String input = scanner.nextLine();
+        scanner.close();
+        
+        try {
+            Gson gson = new Gson();
+            // Parse input as character array
+            char[] s = gson.fromJson(input, char[].class);
+            
+            // Call the solution method
+            ${starterCode}
+            
+            ${code}
+            
+            // Create a new instance and call the method
+            Solution solution = new Solution();
+            char[] result = solution.reverseString(s);
+            
+            // Output the result
+            System.out.println(gson.toJson(result));
+        } catch (Exception e) {
+            System.err.println("Error processing input: " + e.getMessage());
+        }
     }
+}
+
+class Solution {
+    // This will be replaced by the user's code
 }
         `;
       }
       break;
     
     case 'cpp':
-    case 'c':
       // If code doesn't have a main function, add one
       if (!code.includes('int main(')) {
         return `
 #include <iostream>
 #include <vector>
 #include <string>
+#include <sstream>
+#include <algorithm>
 using namespace std;
+
+${starterCode}
 
 ${code}
 
+// Parse input string to vector
+vector<char> parseInput(string input) {
+    vector<char> result;
+    // Remove brackets and quotes
+    input = input.substr(1, input.length() - 2);
+    stringstream ss(input);
+    string item;
+    while (getline(ss, item, ',')) {
+        // Remove quotes and whitespace
+        item.erase(remove_if(item.begin(), item.end(), [](char c) { return c == '"' || c == ' '; }), item.end());
+        if (!item.empty()) {
+            result.push_back(item[0]);
+        }
+    }
+    return result;
+}
+
 int main() {
-    // The rest will be handled by the test case input
+    string input;
+    getline(cin, input);
+    
+    vector<char> s = parseInput(input);
+    
+    // Call the solution function
+    Solution solution;
+    solution.reverseString(s);
+    
+    // Output the result
+    cout << "[";
+    for (size_t i = 0; i < s.size(); ++i) {
+        cout << "\"" << s[i] << "\"";
+        if (i < s.size() - 1) cout << ",";
+    }
+    cout << "]" << endl;
+    
     return 0;
 }
         `;
@@ -290,12 +432,35 @@ int main() {
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+
+${starterCode}
+
+${code}
 
 class Program {
     static void Main(string[] args) {
-        // The rest will be handled by the test case input
-        ${code}
+        string input = Console.ReadLine();
+        
+        try {
+            // Parse input as character array
+            char[] s = JsonSerializer.Deserialize<char[]>(input);
+            
+            // Create a new instance and call the method
+            Solution solution = new Solution();
+            solution.ReverseString(s);
+            
+            // Output the result
+            Console.WriteLine(JsonSerializer.Serialize(s));
+        }
+        catch (Exception e) {
+            Console.Error.WriteLine($"Error processing input: {e.Message}");
+        }
     }
+}
+
+class Solution {
+    // This will be replaced by the user's code
 }
         `;
       }
