@@ -227,6 +227,14 @@ serve(async (req) => {
     const avgExecutionTime = testResults.length > 0 ? totalExecutionTime / testResults.length : 0;
 
     console.log(`Submission results: status=${status}, passed=${passedCount}/${testCases.length}`);
+    console.log("Final update values:", {
+      status,
+      test_cases_passed: passedCount,
+      test_cases_total: testCases.length,
+      execution_time_ms: avgExecutionTime,
+      memory_used_mb: maxMemoryUsed / 1024,
+      error_message: errorMessage
+    });
 
     console.log("Updating submission with final results");
     const { error: finalUpdateError } = await supabaseClient.from("problem_submissions").update({
@@ -239,7 +247,7 @@ serve(async (req) => {
     }).eq("id", submission.id);
 
     if (finalUpdateError) {
-      console.log("Error updating submission with final results:", finalUpdateError);
+      console.error("Error updating submission with final results:", finalUpdateError);
     } else {
       console.log("Submission updated with final results");
     }
@@ -258,56 +266,64 @@ serve(async (req) => {
         .maybeSingle();
 
       if (statsError) {
-        console.log("Error checking for existing stats:", statsError);
+        console.error("Error checking for existing stats:", statsError);
       } else {
         console.log("Existing stats found:", existingStats);
       }
 
       if (existingStats) {
         console.log("Updating existing user stats");
+        const updateData = {
+          attempts: existingStats.attempts + 1,
+          solved: true,
+          best_execution_time_ms: Math.min(
+            existingStats.best_execution_time_ms || Infinity,
+            avgExecutionTime
+          ),
+          best_memory_used_mb: Math.min(
+            existingStats.best_memory_used_mb || Infinity,
+            maxMemoryUsed / 1024
+          ),
+          points_earned: problem.points,
+          last_attempted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        console.log("Update data:", updateData);
+        
         const { error: updateStatsError } = await supabaseClient
           .from("user_problem_stats")
-          .update({
-            attempts: existingStats.attempts + 1,
-            solved: true,
-            best_execution_time_ms: Math.min(
-              existingStats.best_execution_time_ms || Infinity,
-              avgExecutionTime
-            ),
-            best_memory_used_mb: Math.min(
-              existingStats.best_memory_used_mb || Infinity,
-              maxMemoryUsed / 1024
-            ),
-            points_earned: problem.points,
-            last_attempted_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq("user_id", user.id)
           .eq("problem_id", problemId);
 
         if (updateStatsError) {
-          console.log("Error updating user stats:", updateStatsError);
+          console.error("Error updating user stats:", updateStatsError);
         } else {
           console.log("User stats updated successfully");
         }
       } else {
         console.log("Creating new user stats");
+        const newStatsData = {
+          user_id: user.id,
+          problem_id: problemId,
+          attempts: 1,
+          solved: true,
+          best_execution_time_ms: avgExecutionTime,
+          best_memory_used_mb: maxMemoryUsed / 1024,
+          points_earned: problem.points,
+          last_attempted_at: new Date().toISOString(),
+        };
+        
+        console.log("New stats data:", newStatsData);
+        
         const { data: newStats, error: createStatsError } = await supabaseClient
           .from("user_problem_stats")
-          .insert({
-            user_id: user.id,
-            problem_id: problemId,
-            attempts: 1,
-            solved: true,
-            best_execution_time_ms: avgExecutionTime,
-            best_memory_used_mb: maxMemoryUsed / 1024,
-            points_earned: problem.points,
-            last_attempted_at: new Date().toISOString(),
-          })
+          .insert(newStatsData)
           .select();
 
         if (createStatsError) {
-          console.log("Error creating user stats:", createStatsError);
+          console.error("Error creating user stats:", createStatsError);
         } else {
           console.log("New user stats created:", newStats);
         }
@@ -324,41 +340,49 @@ serve(async (req) => {
         .maybeSingle();
 
       if (statsError) {
-        console.log("Error checking for existing stats:", statsError);
+        console.error("Error checking for existing stats:", statsError);
       }
 
       if (existingStats) {
         console.log("Updating attempts count in existing stats");
+        const updateData = {
+          attempts: existingStats.attempts + 1,
+          last_attempted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        console.log("Update data for attempts:", updateData);
+        
         const { error: updateStatsError } = await supabaseClient
           .from("user_problem_stats")
-          .update({
-            attempts: existingStats.attempts + 1,
-            last_attempted_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq("user_id", user.id)
           .eq("problem_id", problemId);
 
         if (updateStatsError) {
-          console.log("Error updating attempts count:", updateStatsError);
+          console.error("Error updating attempts count:", updateStatsError);
         } else {
           console.log("Attempts count updated successfully");
         }
       } else {
         console.log("Creating new user stats with attempts=1, solved=false");
+        const newStatsData = {
+          user_id: user.id,
+          problem_id: problemId,
+          attempts: 1,
+          solved: false,
+          last_attempted_at: new Date().toISOString(),
+        };
+        
+        console.log("New stats data for attempts:", newStatsData);
+        
         const { data: newStats, error: createStatsError } = await supabaseClient
           .from("user_problem_stats")
-          .insert({
-            user_id: user.id,
-            problem_id: problemId,
-            attempts: 1,
-            solved: false,
-            last_attempted_at: new Date().toISOString(),
-          })
+          .insert(newStatsData)
           .select();
 
         if (createStatsError) {
-          console.log("Error creating user stats:", createStatsError);
+          console.error("Error creating user stats:", createStatsError);
         } else {
           console.log("New user stats created with attempts=1:", newStats);
         }
