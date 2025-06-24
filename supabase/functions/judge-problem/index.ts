@@ -282,7 +282,8 @@ serve(async (req) => {
             last_attempted_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq("id", existingStats.id);
+          .eq("user_id", user.id)
+          .eq("problem_id", problemId);
 
         if (updateStatsError) {
           console.log("Error updating user stats:", updateStatsError);
@@ -335,7 +336,8 @@ serve(async (req) => {
             last_attempted_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq("id", existingStats.id);
+          .eq("user_id", user.id)
+          .eq("problem_id", problemId);
 
         if (updateStatsError) {
           console.log("Error updating attempts count:", updateStatsError);
