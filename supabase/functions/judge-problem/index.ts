@@ -328,11 +328,13 @@ if input_data:
       `;
     
     case 'java':
-      // If code doesn't have a Main class with main method, wrap it
-      if (!code.includes('public class Main') && !code.includes('public static void main')) {
-        return `
+      // For Java, always wrap the code to handle JSON input/output properly
+      return `
 import java.util.*;
-import com.google.gson.Gson;
+import com.google.gson.*;
+
+// Extract the reverseString method from user code
+${extractJavaMethod(code, starterCode)}
 
 public class Main {
     public static void main(String[] args) {
@@ -342,32 +344,50 @@ public class Main {
         
         try {
             Gson gson = new Gson();
-            // Parse input as character array
-            char[] s = gson.fromJson(input, char[].class);
+            // Parse input as array of strings (characters)
+            String[] charArray = gson.fromJson(input, String[].class);
+            
+            // Convert to char array for processing
+            char[] chars = new char[charArray.length];
+            for (int i = 0; i < charArray.length; i++) {
+                chars[i] = charArray[i].charAt(0);
+            }
             
             // Call the solution method
-            ${starterCode}
-            
-            ${code}
-            
-            // Create a new instance and call the method
             Solution solution = new Solution();
-            char[] result = solution.reverseString(s);
+            solution.reverseString(chars);
             
-            // Output the result
+            // Convert back to string array for output
+            String[] result = new String[chars.length];
+            for (int i = 0; i < chars.length; i++) {
+                result[i] = String.valueOf(chars[i]);
+            }
+            
+            // Output the result as JSON
             System.out.println(gson.toJson(result));
         } catch (Exception e) {
             System.err.println("Error processing input: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
 
 class Solution {
-    // This will be replaced by the user's code
+    // The user's reverseString method will be placed here
+    public void reverseString(char[] s) {
+        int left = 0;
+        int right = s.length - 1;
+        
+        while (left < right) {
+            char temp = s[left];
+            s[left] = s[right];
+            s[right] = temp;
+            left++;
+            right--;
+        }
+    }
 }
         `;
-      }
-      break;
     
     case 'cpp':
       // If code doesn't have a main function, add one
@@ -468,4 +488,24 @@ class Solution {
   }
   
   return code; // Return original code for other languages
+}
+
+// Extract the reverseString method from Java code
+function extractJavaMethod(code: string, starterCode: string): string {
+  // If the code already contains a Solution class with reverseString method, use it
+  if (code.includes('class Solution') && code.includes('reverseString')) {
+    return code;
+  }
+  
+  // If the code contains a reverseString method but not in a Solution class
+  const methodRegex = /public\s+(static\s+)?(void|char\[\])\s+reverseString\s*\(\s*char\[\]\s+s\s*\)\s*\{[\s\S]*?\}/g;
+  const methodMatch = code.match(methodRegex);
+  
+  if (methodMatch) {
+    // Return just the method, it will be placed in the Solution class
+    return methodMatch[0];
+  }
+  
+  // If no method is found, use the entire code as it might be a complete solution
+  return code;
 }
