@@ -43,9 +43,35 @@ const ProblemDetailPage = () => {
   useEffect(() => {
     if (problem && problem.starter_code) {
       setCode(problem.starter_code);
-      console.log('Loaded starter code:', problem.starter_code);
     }
   }, [problem]);
+
+  // Update starter code when language changes
+  useEffect(() => {
+    if (problem && problem.starter_code) {
+      // For Java, provide a specific template with Solution class
+      if (language === 'java' && !problem.starter_code.includes('class Solution')) {
+        setCode(`class Solution {
+    public void reverseString(char[] s) {
+        // Your solution here
+        // This method should modify the array in-place
+        int left = 0;
+        int right = s.length - 1;
+        
+        while (left < right) {
+            char temp = s[left];
+            s[left] = s[right];
+            s[right] = temp;
+            left++;
+            right--;
+        }
+    }
+}`);
+      } else {
+        setCode(problem.starter_code);
+      }
+    }
+  }, [language, problem]);
 
   const handleRunCode = async () => {
     if (!problem) return;

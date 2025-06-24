@@ -106,12 +106,12 @@ serve(async (req) => {
         console.log(`Mapped language ${language} to Judge0 ID: ${languageId}`);
 
         // Prepare code with proper entry point based on language and starter code
-        const preparedCode = prepareCodeForLanguage(code, language, problem.starter_code || '');
+        const preparedCode = prepareCodeForLanguage(code, language, problem.starter_code || '', testCase.input);
         
         const judge0Request = {
           language_id: languageId,
           source_code: preparedCode,
-          stdin: testCase.input
+          stdin: language === 'java' ? formatJavaInput(testCase.input) : testCase.input
         };
 
         console.log(`Sending request to Judge0 API for test case ${testCase.id}`);
@@ -147,8 +147,14 @@ serve(async (req) => {
         }
 
         // Check output against expected output
-        const actualOutput = (result.stdout || "").trim();
+        let actualOutput = (result.stdout || "").trim();
         const expectedOutput = testCase.expected_output.trim();
+        
+        // For Java, we need to format the output to match the expected format
+        if (language === 'java') {
+          actualOutput = formatJavaOutput(actualOutput, expectedOutput);
+        }
+        
         const passed = actualOutput === expectedOutput;
 
         console.log(`Test case ${testCase.id} result:`, {
@@ -245,8 +251,42 @@ function mapLanguageToJudge0Id(language: string): number {
   return mapping[language] || 71; // Default to Python 3
 }
 
+// Format Java input to handle array of characters
+function formatJavaInput(input: string): string {
+  try {
+    // Try to parse the input as JSON
+    const parsed = JSON.parse(input.replace(/'/g, '"'));
+    
+    // If it's an array of characters, join them into a string
+    if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string' && item.length === 1)) {
+      return parsed.join('');
+    }
+    
+    // Otherwise, return the original input
+    return input;
+  } catch (e) {
+    // If parsing fails, return the original input
+    return input;
+  }
+}
+
+// Format Java output to match expected format
+function formatJavaOutput(output: string, expectedOutput: string): string {
+  try {
+    // If the expected output looks like a JSON array
+    if (expectedOutput.startsWith('[') && expectedOutput.endsWith(']')) {
+      // Convert the output string to an array of characters
+      const chars = output.trim().split('');
+      return JSON.stringify(chars);
+    }
+    return output;
+  } catch (e) {
+    return output;
+  }
+}
+
 // Prepare code for different languages to ensure proper execution
-function prepareCodeForLanguage(code: string, language: string, starterCode: string): string {
+function prepareCodeForLanguage(code: string, language: string, starterCode: string, testInput: string): string {
   switch (language) {
     case 'javascript':
       // For JavaScript, we need to parse the input and call the function
@@ -328,14 +368,11 @@ if input_data:
       `;
     
     case 'java':
-      // For Java, always wrap the code to handle JSON input/output properly
+      // For Java, create a complete program with the Solution class
       return `
 import java.util.*;
-import com.google.gson.*;
 
-// Extract the reverseString method from user code
-${extractJavaMethod(code, starterCode)}
-
+// Main class to handle input/output
 public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -343,51 +380,27 @@ public class Main {
         scanner.close();
         
         try {
-            Gson gson = new Gson();
-            // Parse input as array of strings (characters)
-            String[] charArray = gson.fromJson(input, String[].class);
+            // Parse input string to get character array
+            String inputStr = input.trim();
+            char[] s = inputStr.toCharArray();
             
-            // Convert to char array for processing
-            char[] chars = new char[charArray.length];
-            for (int i = 0; i < charArray.length; i++) {
-                chars[i] = charArray[i].charAt(0);
-            }
-            
-            // Call the solution method
+            // Create solution instance and call reverseString
             Solution solution = new Solution();
-            solution.reverseString(chars);
+            solution.reverseString(s);
             
-            // Convert back to string array for output
-            String[] result = new String[chars.length];
-            for (int i = 0; i < chars.length; i++) {
-                result[i] = String.valueOf(chars[i]);
-            }
-            
-            // Output the result as JSON
-            System.out.println(gson.toJson(result));
+            // Print the reversed string
+            System.out.println(new String(s));
         } catch (Exception e) {
-            System.err.println("Error processing input: " + e.getMessage());
+            System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
         }
     }
 }
 
+// User's solution class
 class Solution {
-    // The user's reverseString method will be placed here
-    public void reverseString(char[] s) {
-        int left = 0;
-        int right = s.length - 1;
-        
-        while (left < right) {
-            char temp = s[left];
-            s[left] = s[right];
-            s[right] = temp;
-            left++;
-            right--;
-        }
-    }
-}
-        `;
+    ${code.includes("class Solution") ? extractSolutionClass(code) : code}
+}`;
     
     case 'cpp':
       // If code doesn't have a main function, add one
@@ -490,22 +503,24 @@ class Solution {
   return code; // Return original code for other languages
 }
 
-// Extract the reverseString method from Java code
-function extractJavaMethod(code: string, starterCode: string): string {
-  // If the code already contains a Solution class with reverseString method, use it
-  if (code.includes('class Solution') && code.includes('reverseString')) {
-    return code;
+// Extract the Solution class from Java code
+function extractSolutionClass(code: string): string {
+  // If the code already contains a Solution class, extract it
+  const solutionClassRegex = /class\s+Solution\s*\{[\s\S]*?\}/g;
+  const solutionClassMatch = code.match(solutionClassRegex);
+  
+  if (solutionClassMatch) {
+    // Extract the content inside the Solution class
+    const classContent = solutionClassMatch[0];
+    const contentRegex = /class\s+Solution\s*\{([\s\S]*)\}/;
+    const contentMatch = classContent.match(contentRegex);
+    
+    if (contentMatch && contentMatch[1]) {
+      return contentMatch[1];
+    }
   }
   
-  // If the code contains a reverseString method but not in a Solution class
-  const methodRegex = /public\s+(static\s+)?(void|char\[\])\s+reverseString\s*\(\s*char\[\]\s+s\s*\)\s*\{[\s\S]*?\}/g;
-  const methodMatch = code.match(methodRegex);
-  
-  if (methodMatch) {
-    // Return just the method, it will be placed in the Solution class
-    return methodMatch[0];
-  }
-  
-  // If no method is found, use the entire code as it might be a complete solution
+  // If no Solution class is found, return the original code
+  // This assumes the code is just the reverseString method
   return code;
 }
