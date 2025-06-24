@@ -105,7 +105,7 @@ serve(async (req) => {
         const languageId = mapLanguageToJudge0Id(language);
         console.log(`Mapped language ${language} to Judge0 ID: ${languageId}`);
 
-        // Prepare code with proper entry point based on language and starter code
+        // Prepare code with proper entry point based on language
         const preparedCode = prepareCodeForLanguage(code, language, problem.starter_code || '', testCase.input);
         
         const judge0Request = {
@@ -196,8 +196,6 @@ serve(async (req) => {
     }
 
     const avgExecutionTime = testResults.length > 0 ? totalExecutionTime / testResults.length : 0;
-
-    console.log(`Submission results: status=${status}, passed=${passedCount}/${testCases.length}`);
 
     await supabaseClient.from("problem_submissions").update({
       status,
@@ -399,7 +397,7 @@ public class Main {
 
 // User's solution class
 class Solution {
-    ${code.includes("class Solution") ? extractSolutionClass(code) : code}
+    ${code}
 }`;
     
     case 'cpp':
@@ -501,26 +499,4 @@ class Solution {
   }
   
   return code; // Return original code for other languages
-}
-
-// Extract the Solution class from Java code
-function extractSolutionClass(code: string): string {
-  // If the code already contains a Solution class, extract it
-  const solutionClassRegex = /class\s+Solution\s*\{[\s\S]*?\}/g;
-  const solutionClassMatch = code.match(solutionClassRegex);
-  
-  if (solutionClassMatch) {
-    // Extract the content inside the Solution class
-    const classContent = solutionClassMatch[0];
-    const contentRegex = /class\s+Solution\s*\{([\s\S]*)\}/;
-    const contentMatch = classContent.match(contentRegex);
-    
-    if (contentMatch && contentMatch[1]) {
-      return contentMatch[1];
-    }
-  }
-  
-  // If no Solution class is found, return the original code
-  // This assumes the code is just the reverseString method
-  return code;
 }

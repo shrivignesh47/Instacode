@@ -50,23 +50,36 @@ const ProblemDetailPage = () => {
   useEffect(() => {
     if (problem && problem.starter_code) {
       // For Java, provide a specific template with Solution class
-      if (language === 'java' && !problem.starter_code.includes('class Solution')) {
-        setCode(`class Solution {
-    public void reverseString(char[] s) {
-        // Your solution here
-        // This method should modify the array in-place
-        int left = 0;
-        int right = s.length - 1;
-        
-        while (left < right) {
-            char temp = s[left];
-            s[left] = s[right];
-            s[right] = temp;
-            left++;
-            right--;
-        }
+      if (language === 'java') {
+        // Check if starter code already contains a Solution class
+        if (problem.starter_code.includes('class Solution')) {
+          // Extract just the method body from the Solution class
+          const methodRegex = /public\s+\w+\s+\w+\s*\([^)]*\)\s*\{[\s\S]*\}/;
+          const methodMatch = problem.starter_code.match(methodRegex);
+          
+          if (methodMatch) {
+            setCode(methodMatch[0]);
+          } else {
+            // Fallback to a default method if we can't extract it
+            setCode(`public void reverseString(char[] s) {
+    // Your solution here
+    // This method should modify the array in-place
+    int left = 0;
+    int right = s.length - 1;
+    
+    while (left < right) {
+        char temp = s[left];
+        s[left] = s[right];
+        s[right] = temp;
+        left++;
+        right--;
     }
 }`);
+          }
+        } else {
+          // If no Solution class, use the starter code directly (assuming it's just the method)
+          setCode(problem.starter_code);
+        }
       } else {
         setCode(problem.starter_code);
       }
