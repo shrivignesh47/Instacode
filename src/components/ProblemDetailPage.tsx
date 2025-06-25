@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Award, 
-  Clock, 
-  Zap, 
-  Play, 
-  CheckCircle, 
-  XCircle, 
+import {
+  ArrowLeft,
+  Award,
+  Clock,
+  Zap,
+  Play,
+  CheckCircle,
+  XCircle,
   Loader2,
   Users,
   BarChart,
@@ -22,6 +22,7 @@ import { submitProblemSolution } from '../utils/problemUtils';
 import CodeEditor from '../components/CodeEditor';
 import { getFileExtension } from '../utils/codeRunner';
 import ProblemSubmissionsList from '../components/ProblemSubmissionsList';
+import { supabase } from '../lib/supabaseClient'; // Import supabase
 
 const ProblemDetailPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -29,7 +30,7 @@ const ProblemDetailPage = () => {
   const { user } = useAuth();
   const { problem, loading, error } = useProblemBySlug(slug || '');
   const { submissions, loading: submissionsLoading } = useProblemSubmissions(problem?.id, user?.id);
-  
+
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('javascript');
   const [activeTab, setActiveTab] = useState<'description' | 'submissions' | 'discussion'>('description');
@@ -41,29 +42,75 @@ const ProblemDetailPage = () => {
 
   // Set initial code from problem starter code when loaded
   useEffect(() => {
-    if (problem && problem.starter_code) {
-      setCode(problem.starter_code);
+    if (problem) {
+      // Ensure code is always a string, even if problem.starter_code is null
+      setCode(problem.starter_code || '');
     }
   }, [problem]);
 
+  // Update starter code when language changes
+  useEffect(() => {
+    if (problem && problem.starter_code) {
+      // For Java, provide a specific template with Solution class
+      if (language === 'java') {
+        // Check if starter code already contains a Solution class
+        if (problem.starter_code.includes('class Solution')) {
+          // Extract just the method body from the Solution class
+          const methodRegex = /public\s+\w+\s+\w+\s*\([^)]*\)\s*\{[\s\S]*\}/;
+          const methodMatch = problem.starter_code.match(methodRegex);
+
+          if (methodMatch) {
+            setCode(methodMatch[0]);
+          } else {
+            // Fallback to a default method if we can't extract it
+            setCode(`public void reverseString(char[] s) {
+    // Your solution here
+    // This method should modify the array in-place
+    int left = 0;
+    int right = s.length - 1;
+
+    while (left < right) {
+        char temp = s[left];
+        s[left] = s[right];
+        s[right] = temp;
+        left++;
+        right--;
+    }
+}`);
+          }
+        } else {
+          // If no Solution class, use the starter code directly (assuming it's just the method)
+          setCode(problem.starter_code);
+        }
+      } else {
+        setCode(problem.starter_code);
+      }
+    }
+  }, [language, problem]);
+
   const handleRunCode = async () => {
     if (!problem) return;
-    
+
     setIsRunning(true);
     setOutput('Running code...');
     setTestResults([]);
-    
+
     try {
       // Submit to judge-problem function with test mode
       const result = await submitProblemSolution(problem.id, code, language);
-      
+
       setTestResults(result.test_results || []);
-      
+
       // Set overall output
       const passedCount = result.test_cases_passed;
       const totalCount = result.test_cases_total;
-      setOutput(`Passed ${passedCount}/${totalCount} test cases`);
-      
+
+      if (result.error_message) {
+        setOutput(`Error: ${result.error_message}`);
+      } else {
+        setOutput(`Passed ${passedCount}/${totalCount} test cases`);
+      }
+
     } catch (error) {
       console.error('Error running code:', error);
       setOutput(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -74,19 +121,19 @@ const ProblemDetailPage = () => {
 
   const handleSubmit = async () => {
     if (!problem || !user) return;
-    
+
     setIsSubmitting(true);
     setSubmissionStatus('pending');
     setOutput('Submitting solution...');
-    
+
     try {
       // Submit to judge-problem function
       const result = await submitProblemSolution(problem.id, code, language);
-      
+
       // Update UI with results
       setSubmissionStatus(result.status);
       setTestResults(result.test_results || []);
-      
+
       // Set output message based on status
       if (result.status === 'accepted') {
         setOutput(`Success! All ${result.test_cases_passed}/${result.test_cases_total} test cases passed.`);
@@ -99,7 +146,110 @@ const ProblemDetailPage = () => {
       } else {
         setOutput(`Failed: ${result.test_cases_passed}/${result.test_cases_total} test cases passed.`);
       }
-      
+
+      // --- Start: Client-side database update logic ---
+      // Update problem_submissions table
+      if (result.submission_id) {
+        const { error: updateSubmissionError } = await supabase
+          .from('problem_submissions')
+          .update({
+            status: result.status,
+            execution_time_ms: result.execution_time_ms,
+            memory_used_mb: result.memory_used_mb,
+            test_cases_passed: result.test_cases_passed,
+            test_cases_total: result.test_cases_total,
+            error_message: result.error_message,
+          })
+          .eq('id', result.submission_id);
+
+        if (updateSubmissionError) {
+          console.error('Error updating problem_submissions:', updateSubmissionError);
+          // Optionally, set an error message for the user
+        }
+      }
+
+      // Update user_problem_stats table
+      const { data: existingStats, error: fetchStatsError } = await supabase
+        .from('user_problem_stats')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('problem_id', problem.id)
+        .maybeSingle();
+
+      if (fetchStatsError) {
+        console.error('Error fetching user_problem_stats:', fetchStatsError);
+        // Optionally, set an error message for the user
+      }
+
+      if (result.status === 'accepted') {
+        if (existingStats) {
+          const newAttempts = existingStats.attempts + 1;
+          const newPointsEarned = existingStats.solved ? existingStats.points_earned : existingStats.points_earned + problem.points;
+          const newBestExecutionTime = Math.min(existingStats.best_execution_time_ms || Infinity, result.execution_time_ms);
+          const newBestMemoryUsed = Math.min(existingStats.best_memory_used_mb || Infinity, result.memory_used_mb);
+
+          const { error: updateError } = await supabase
+            .from('user_problem_stats')
+            .update({
+              attempts: newAttempts,
+              solved: true,
+              best_execution_time_ms: newBestExecutionTime,
+              best_memory_used_mb: newBestMemoryUsed,
+              points_earned: newPointsEarned,
+              last_attempted_at: new Date().toISOString(),
+            })
+            .eq('user_id', user.id)
+            .eq('problem_id', problem.id);
+
+          if (updateError) console.error('Error updating user_problem_stats:', updateError);
+
+        } else {
+          const { error: insertError } = await supabase
+            .from('user_problem_stats')
+            .insert({
+              user_id: user.id,
+              problem_id: problem.id,
+              attempts: 1,
+              solved: true,
+              best_execution_time_ms: result.execution_time_ms,
+              best_memory_used_mb: result.memory_used_mb,
+              points_earned: problem.points,
+              last_attempted_at: new Date().toISOString(),
+            });
+
+          if (insertError) console.error('Error inserting user_problem_stats:', insertError);
+        }
+      } else { // Not accepted
+        if (existingStats) {
+          const newAttempts = existingStats.attempts + 1;
+          const { error: updateError } = await supabase
+            .from('user_problem_stats')
+            .update({
+              attempts: newAttempts,
+              last_attempted_at: new Date().toISOString(),
+            })
+            .eq('user_id', user.id)
+            .eq('problem_id', problem.id);
+
+          if (updateError) console.error('Error updating user_problem_stats:', updateError);
+
+        } else {
+          const { error: insertError } = await supabase
+            .from('user_problem_stats')
+            .insert({
+              user_id: user.id,
+              problem_id: problem.id,
+              attempts: 1,
+              solved: false,
+              points_earned: 0, // No points earned if not solved
+              last_attempted_at: new Date().toISOString(),
+            });
+
+          if (insertError) console.error('Error inserting user_problem_stats:', insertError);
+        }
+      }
+      // --- End: Client-side database update logic ---
+
     } catch (error) {
       console.error('Error submitting solution:', error);
       setSubmissionStatus('error');
@@ -163,7 +313,7 @@ const ProblemDetailPage = () => {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Problems
         </button>
-        
+
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">{problem.title}</h1>
@@ -185,7 +335,7 @@ const ProblemDetailPage = () => {
               </span>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-1 text-sm text-gray-400">
               <Clock className="w-4 h-4" />
@@ -260,25 +410,39 @@ const ProblemDetailPage = () => {
                   </div>
                 </div>
 
+                {/* Starter Code */}
+                {problem.starter_code && (
+                  <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                    <h2 className="text-lg font-semibold text-white mb-4">Starter Code</h2>
+                    <CodeEditor
+                      initialCode={problem.starter_code}
+                      language={language}
+                      readOnly={true}
+                      showRunButton={false}
+                      height="200px"
+                    />
+                  </div>
+                )}
+
                 {/* Sample Test Cases */}
                 <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
                   <h2 className="text-lg font-semibold text-white mb-4">Sample Test Cases</h2>
                   {problem.test_cases && problem.test_cases.length > 0 ? (
                     <div className="space-y-4">
-                      {problem.test_cases.map((testCase, index) => (
-                        <div key={testCase.id} className="bg-gray-700 rounded-lg p-3">
+                      {problem.test_cases.map((result, index) => (
+                        <div key={result.id} className="bg-gray-700 rounded-lg p-3">
                           <div className="text-sm font-medium text-purple-400 mb-2">Example {index + 1}</div>
                           <div className="space-y-3">
                             <div>
                               <div className="text-xs text-gray-400 mb-1">Input:</div>
                               <pre className="bg-gray-800 p-2 rounded text-gray-300 text-sm overflow-x-auto">
-                                {testCase.input}
+                                {result.input}
                               </pre>
                             </div>
                             <div>
                               <div className="text-xs text-gray-400 mb-1">Expected Output:</div>
                               <pre className="bg-gray-800 p-2 rounded text-gray-300 text-sm overflow-x-auto">
-                                {testCase.expected_output}
+                                {result.expected_output}
                               </pre>
                             </div>
                           </div>
@@ -329,7 +493,7 @@ const ProblemDetailPage = () => {
           <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
             <div className="px-4 py-3 bg-gray-700 border-b border-gray-600 flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <span className="text-sm font-medium text-gray-300">Solution</span>
+                <span className="text-sm font-medium text-gray-300">Your Solution</span>
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
@@ -341,7 +505,7 @@ const ProblemDetailPage = () => {
                   <option value="cpp">C++</option>
                 </select>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <button
                   onClick={copyCode}
@@ -350,7 +514,7 @@ const ProblemDetailPage = () => {
                 >
                   <Copy className="w-4 h-4" />
                 </button>
-                
+
                 <button
                   onClick={downloadCode}
                   className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-600 rounded transition-colors"
@@ -360,7 +524,7 @@ const ProblemDetailPage = () => {
                 </button>
               </div>
             </div>
-            
+
             <div className="p-0">
               <CodeEditor
                 initialCode={code}
@@ -441,31 +605,43 @@ const ProblemDetailPage = () => {
           {/* Submission Status */}
           {submissionStatus && (
             <div className={`p-4 rounded-lg ${
-              submissionStatus === 'accepted' 
-                ? 'bg-green-900 bg-opacity-30 border border-green-700' 
+              submissionStatus === 'accepted'
+                ? 'bg-green-900 bg-opacity-30 border border-green-700'
                 : submissionStatus === 'error'
+                ? 'bg-red-900 bg-opacity-30 border border-red-700'
+                : submissionStatus === 'compilation_error' || submissionStatus === 'runtime_error'
                 ? 'bg-red-900 bg-opacity-30 border border-red-700'
                 : 'bg-yellow-900 bg-opacity-30 border border-yellow-700'
             }`}>
               <div className="flex items-center space-x-2">
                 {submissionStatus === 'accepted' ? (
                   <CheckCircle className="w-5 h-5 text-green-500" />
-                ) : submissionStatus === 'error' ? (
+                ) : submissionStatus === 'error'
+                ? (
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                ) : submissionStatus === 'compilation_error' || submissionStatus === 'runtime_error'
+                ? (
                   <AlertTriangle className="w-5 h-5 text-red-500" />
                 ) : (
                   <XCircle className="w-5 h-5 text-yellow-500" />
                 )}
                 <span className={`font-medium ${
-                  submissionStatus === 'accepted' 
-                    ? 'text-green-400' 
+                  submissionStatus === 'accepted'
+                    ? 'text-green-400'
                     : submissionStatus === 'error'
+                    ? 'text-red-400'
+                    : submissionStatus === 'compilation_error' || submissionStatus === 'runtime_error'
                     ? 'text-red-400'
                     : 'text-yellow-400'
                 }`}>
-                  {submissionStatus === 'accepted' 
-                    ? 'All test cases passed! Problem completed.' 
+                  {submissionStatus === 'accepted'
+                    ? 'All test cases passed! Problem completed.'
                     : submissionStatus === 'error'
                     ? 'An error occurred during submission.'
+                    : submissionStatus === 'compilation_error'
+                    ? 'Compilation Error: Please check your code syntax.'
+                    : submissionStatus === 'runtime_error'
+                    ? 'Runtime Error: Your code crashed during execution.'
                     : 'Some test cases failed. Try again!'}
                 </span>
               </div>
@@ -491,7 +667,7 @@ const ProblemDetailPage = () => {
                 </>
               )}
             </button>
-            
+
             <button
               onClick={handleSubmit}
               disabled={isSubmitting || !code.trim() || isRunning}
