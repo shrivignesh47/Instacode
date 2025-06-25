@@ -156,7 +156,7 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
           {/* Right side icons */}
           <div className="flex items-center space-x-4">
             <button className="hidden sm:block p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700">
-              <ShoppingBag className="w-5 h-5" />
+              {/* <ShoppingBag className="w-5 h-5" /> */}
             </button>
             
             {/* Notification Bell */}
@@ -189,12 +189,6 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
             </Link>
 
             {/* Mobile Messages Button */}
-            <Link
-              to="/messages"
-              className="lg:hidden p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700"
-            >
-              <MessageCircle className="w-5 h-5" />
-            </Link>
 
             {/* Profile Menu */}
             <div className="relative">
