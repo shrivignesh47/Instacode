@@ -113,7 +113,7 @@ const ProblemDetailPage = () => {
 
     } catch (error) {
       console.error('Error running code:', error);
-      setOutput(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
+      setOutput(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsRunning(false);
     }
@@ -198,7 +198,8 @@ const ProblemDetailPage = () => {
               points_earned: newPointsEarned,
               last_attempted_at: new Date().toISOString(),
             })
-            .eq('id', existingStats.id);
+            .eq('user_id', user.id)
+            .eq('problem_id', problem.id);
 
           if (updateError) console.error('Error updating user_problem_stats:', updateError);
 
@@ -227,7 +228,8 @@ const ProblemDetailPage = () => {
               attempts: newAttempts,
               last_attempted_at: new Date().toISOString(),
             })
-            .eq('id', existingStats.id);
+            .eq('user_id', user.id)
+            .eq('problem_id', problem.id);
 
           if (updateError) console.error('Error updating user_problem_stats:', updateError);
 
@@ -427,20 +429,20 @@ const ProblemDetailPage = () => {
                   <h2 className="text-lg font-semibold text-white mb-4">Sample Test Cases</h2>
                   {problem.test_cases && problem.test_cases.length > 0 ? (
                     <div className="space-y-4">
-                      {problem.test_cases.map((testCase, index) => (
-                        <div key={testCase.id} className="bg-gray-700 rounded-lg p-3">
+                      {problem.test_cases.map((result, index) => (
+                        <div key={result.id} className="bg-gray-700 rounded-lg p-3">
                           <div className="text-sm font-medium text-purple-400 mb-2">Example {index + 1}</div>
                           <div className="space-y-3">
                             <div>
                               <div className="text-xs text-gray-400 mb-1">Input:</div>
                               <pre className="bg-gray-800 p-2 rounded text-gray-300 text-sm overflow-x-auto">
-                                {testCase.input}
+                                {result.input}
                               </pre>
                             </div>
                             <div>
                               <div className="text-xs text-gray-400 mb-1">Expected Output:</div>
                               <pre className="bg-gray-800 p-2 rounded text-gray-300 text-sm overflow-x-auto">
-                                {testCase.expected_output}
+                                {result.expected_output}
                               </pre>
                             </div>
                           </div>
@@ -614,7 +616,11 @@ const ProblemDetailPage = () => {
               <div className="flex items-center space-x-2">
                 {submissionStatus === 'accepted' ? (
                   <CheckCircle className="w-5 h-5 text-green-500" />
-                ) : submissionStatus === 'error' || submissionStatus === 'compilation_error' || submissionStatus === 'runtime_error' ? (
+                ) : submissionStatus === 'error'
+                ? (
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                ) : submissionStatus === 'compilation_error' || submissionStatus === 'runtime_error'
+                ? (
                   <AlertTriangle className="w-5 h-5 text-red-500" />
                 ) : (
                   <XCircle className="w-5 h-5 text-yellow-500" />
