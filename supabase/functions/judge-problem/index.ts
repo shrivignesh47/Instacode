@@ -1,12 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.47.1";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization"
 };
-
 // Judge0 API Setup
 const JUDGE0_API_URL = "https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false&wait=true";
 const JUDGE0_HEADERS = {
@@ -14,198 +12,282 @@ const JUDGE0_HEADERS = {
   "x-rapidapi-key": "f05bcdf01amshc2a92c4c298310cp173b13jsn32d07cde987c",
   "x-rapidapi-host": "judge0-ce.p.rapidapi.com"
 };
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
-  }
-
+async function updateUserProblemStats(supabaseClient, submissionResult, userId, problemId, problemPoints) {
   try {
-    console.log("Judge-problem function started");
-    
+    console.log("🔄 Updating user problem stats...");
+    console.log("📊 Submission result:", JSON.stringify(submissionResult, null, 2));
+    console.log("🧑 User ID:", userId);
+    console.log("🧩 Problem ID:", problemId);
+    console.log("🏆 Problem Points:", problemPoints);
+    // Fetch existing stats
+    const { data: existingStats, error: fetchError } = await supabaseClient.from("user_problem_stats").select("*").eq("user_id", userId).eq("problem_id", problemId).single();
+    if (fetchError && fetchError.code !== "PGRST116") {
+      console.error("❌ Error fetching existing stats:", fetchError.message);
+      return;
+    }
+    console.log("📂 Existing stats:", JSON.stringify(existingStats, null, 2));
+    const isAccepted = submissionResult.status === "accepted";
+    const wasPreviouslySolved = existingStats?.solved || false;
+    function getNormalizedTimestamp() {
+      const now = new Date();
+      return now.toISOString().replace("Z", "+00:00");
+    }
+    const now = getNormalizedTimestamp();
+    const updateData = {
+      attempts: (existingStats?.attempts || 0) + 1,
+      last_attempted_at: now,
+      updated_at: now
+    };
+    if (isAccepted) {
+      updateData.solved = true;
+      if (!existingStats?.best_execution_time_ms || submissionResult.execution_time_ms < existingStats.best_execution_time_ms) {
+        updateData.best_execution_time_ms = submissionResult.execution_time_ms;
+      }
+      if (!existingStats?.best_memory_used_mb || submissionResult.memory_used_mb < existingStats.best_memory_used_mb) {
+        updateData.best_memory_used_mb = submissionResult.memory_used_mb;
+      }
+      if (!wasPreviouslySolved) {
+        updateData.points_earned = problemPoints;
+      }
+    }
+    console.log("📝 Update Data:", JSON.stringify(updateData, null, 2));
+    let result;
+    if (existingStats) {
+      // Try to update and SELECT to verify
+      result = await supabaseClient.from("user_problem_stats").update(updateData).eq("user_id", userId).eq("problem_id", problemId).select(); // <-- Critical fix: use .select() to verify update
+    } else {
+      // Insert only if no existing record
+      result = await supabaseClient.from("user_problem_stats").insert({
+        user_id: userId,
+        problem_id: problemId,
+        ...updateData,
+        solved: isAccepted,
+        points_earned: isAccepted ? problemPoints : 0
+      });
+    }
+    const { data: updateResult, error: updateError } = result;
+    if (updateError) {
+      console.error("❌ Failed to update user stats:", updateError.message);
+    } else if (!updateResult || updateResult.length === 0) {
+      console.warn("⚠️ No rows were updated — record may not exist.");
+      // Confirm if record really doesn't exist
+      const { data: checkAgain, error: checkError } = await supabaseClient.from("user_problem_stats").select("*").eq("user_id", userId).eq("problem_id", problemId).single();
+      if (checkError && checkError.code !== "PGRST116") {
+        console.error("❌ Unexpected error checking stats:", checkError.message);
+      }
+      if (!checkAgain) {
+        // Only insert if record truly doesn't exist
+        const { error: insertError } = await supabaseClient.from("user_problem_stats").insert({
+          user_id: userId,
+          problem_id: problemId,
+          ...updateData,
+          solved: isAccepted,
+          points_earned: isAccepted ? problemPoints : 0
+        });
+        if (insertError) {
+          console.error("❌ Failed to insert new stats:", insertError.message);
+        } else {
+          console.log("📦 Successfully inserted new stats");
+        }
+      } else {
+        console.warn("🟨 Record already exists but wasn't updated.");
+      }
+    } else {
+      console.log("✅ Successfully called .update()");
+      // Re-fetch to verify
+      const { data: verifyData, error: verifyError } = await supabaseClient.from("user_problem_stats").select("*").eq("user_id", userId).eq("problem_id", problemId).single();
+      if (verifyError) {
+        console.error("❌ Error verifying update:", verifyError.message);
+      } else {
+        console.log("🔍 Verified updated stats:", JSON.stringify(verifyData, null, 2));
+        console.assert(verifyData.attempts === updateData.attempts, `Attempts mismatch: expected ${updateData.attempts}, got ${verifyData.attempts}`);
+        console.assert(verifyData.last_attempted_at === updateData.last_attempted_at, `Last attempted at mismatch: expected ${updateData.last_attempted_at}, got ${verifyData.last_attempted_at}`);
+        if (isAccepted) {
+          console.assert(verifyData.solved === true, `Expected solved to be true, got ${verifyData.solved}`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("💥 Error in updateUserProblemStats:", error);
+  }
+}
+serve(async (req)=>{
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders
+    });
+  }
+  try {
+    console.log("🚀 Judge-problem function started");
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      console.log("Missing authorization header");
-      return new Response(JSON.stringify({ error: "Missing authorization header" }), {
+      console.log("🚫 Missing authorization header");
+      return new Response(JSON.stringify({
+        error: "Missing authorization header"
+      }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
       });
     }
-
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") || "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    console.log("Getting user from auth");
+    const supabaseClient = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "", {
+      global: {
+        headers: {
+          Authorization: authHeader
+        }
+      }
+    });
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
-      console.log("User authentication error:", userError);
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      console.log("🚫 User authentication error:", userError);
+      return new Response(JSON.stringify({
+        error: "Unauthorized"
+      }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
       });
     }
-    console.log("Authenticated user:", user.id);
-
+    console.log("👤 Authenticated user:", user.id);
     const requestBody = await req.json();
-    console.log("Request body:", JSON.stringify(requestBody));
-    
+    console.log("📥 Request body:", JSON.stringify(requestBody));
     const { problemId, code, language, challengeId } = requestBody;
     if (!problemId || !code || !language) {
-      console.log("Missing required fields in request");
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
+      console.log("🚫 Missing required fields in request");
+      return new Response(JSON.stringify({
+        error: "Missing required fields"
+      }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
       });
     }
-
-    console.log(`Processing submission for problem ${problemId}, language: ${language}, user: ${user.id}`);
-
-    console.log("Fetching problem details");
-    const { data: problem, error: problemError } = await supabaseClient
-      .from("problems").select("*, starter_code").eq("id", problemId).single();
+    console.log(`🛠 Processing submission for problem ${problemId}, language: ${language}, user: ${user.id}`);
+    const { data: problem, error: problemError } = await supabaseClient.from("problems").select("*, starter_code").eq("id", problemId).single();
     if (problemError || !problem) {
-      console.log("Problem not found:", problemError);
-      return new Response(JSON.stringify({ error: "Problem not found" }), {
+      console.log("🚫 Problem not found:", problemError);
+      return new Response(JSON.stringify({
+        error: "Problem not found"
+      }), {
         status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
       });
     }
-    console.log("Problem found:", problem.id, problem.title);
-
-    console.log("Fetching test cases");
-    const { data: testCases, error: testCasesError } = await supabaseClient
-      .from("problem_test_cases").select("*").eq("problem_id", problemId).order("order_index", { ascending: true });
+    console.log("📌 Problem found:", problem.id, problem.title);
+    const { data: testCases, error: testCasesError } = await supabaseClient.from("problem_test_cases").select("*").eq("problem_id", problemId).order("order_index", {
+      ascending: true
+    });
     if (testCasesError) {
-      console.log("Error fetching test cases:", testCasesError);
-      return new Response(JSON.stringify({ error: "Failed to fetch test cases" }), {
+      console.log("🚫 Error fetching test cases:", testCasesError);
+      return new Response(JSON.stringify({
+        error: "Failed to fetch test cases"
+      }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
       });
     }
-
-    console.log(`Found ${testCases.length} test cases for problem ${problemId}`);
-
-    console.log("Creating submission record");
-    const { data: submission, error: submissionError } = await supabaseClient
-      .from("problem_submissions").insert({
-        problem_id: problemId,
-        user_id: user.id,
-        challenge_id: challengeId || null,
-        code,
-        language,
-        status: "pending",
-        test_cases_passed: 0,
-        test_cases_total: testCases.length
-      }).select().single();
-    
+    console.log(`🔢 Found ${testCases.length} test cases`);
+    const { data: submission, error: submissionError } = await supabaseClient.from("problem_submissions").insert({
+      problem_id: problemId,
+      user_id: user.id,
+      challenge_id: challengeId || null,
+      code,
+      language,
+      status: "pending",
+      test_cases_passed: 0,
+      test_cases_total: testCases.length
+    }).select().single();
     if (submissionError) {
-      console.log("Error creating submission:", submissionError);
-      return new Response(JSON.stringify({ error: "Failed to create submission" }), {
+      console.log("🚫 Error creating submission:", submissionError);
+      return new Response(JSON.stringify({
+        error: "Failed to create submission"
+      }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
       });
     }
-    console.log("Submission created:", submission.id);
-
-    console.log("Updating submission status to running");
-    const { error: updateError } = await supabaseClient
-      .from("problem_submissions")
-      .update({ status: "running" })
-      .eq("id", submission.id);
-    
-    if (updateError) {
-      console.log("Error updating submission status:", updateError);
-    } else {
-      console.log("Submission status updated to running");
-    }
-
+    console.log("📦 Submission created:", submission.id);
     const testResults = [];
     let passedCount = 0;
     let totalExecutionTime = 0;
     let maxMemoryUsed = 0;
     let errorMessage = null;
     let status = "accepted";
-
-    for (const testCase of testCases) {
+    for (const testCase of testCases){
       try {
         const languageId = mapLanguageToJudge0Id(language);
-        console.log(`Mapped language ${language} to Judge0 ID: ${languageId}`);
-
-        // Prepare code with proper entry point based on language
-        const preparedCode = prepareCodeForLanguage(code, language, problem.starter_code || '', testCase.input);
-        
+        console.log(`🔧 Mapped language ${language} to Judge0 ID: ${languageId}`);
+        const preparedCode = prepareCodeForLanguage(code, language, problem.starter_code || "", testCase.input);
         const judge0Request = {
           language_id: languageId,
           source_code: preparedCode,
-          stdin: language === 'java' ? formatJavaInput(testCase.input) : testCase.input
+          stdin: language === "java" ? formatJavaInput(testCase.input) : testCase.input
         };
-
-        console.log(`Sending request to Judge0 API for test case ${testCase.id}`);
+        console.log(`📡 Sending request to Judge0 API for test case ${testCase.id}`);
         const response = await fetch(JUDGE0_API_URL, {
           method: "POST",
           headers: JUDGE0_HEADERS,
           body: JSON.stringify(judge0Request)
         });
-
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`Judge0 API error: ${response.status} ${response.statusText}`, errorText);
+          console.error(`🚫 Judge0 API error: ${response.status} ${response.statusText}`, errorText);
           throw new Error(`Judge0 API error: ${response.statusText}`);
         }
-
         const result = await response.json();
-        console.log(`Judge0 API response:`, JSON.stringify(result, null, 2));
-
-        // Check for compilation errors
-        if (result.compile_output) {
-          console.log(`Compilation error: ${result.compile_output}`);
+        console.log(`📋 Judge0 API response:`, JSON.stringify(result, null, 2));
+        if (result.status?.id === 6) {
           status = "compilation_error";
           errorMessage = result.compile_output;
-          break;
-        }
-
-        // Check for runtime errors
-        if (result.stderr) {
-          console.log(`Runtime error: ${result.stderr}`);
+        } else if ([
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ].includes(result.status?.id)) {
           status = "runtime_error";
           errorMessage = result.stderr;
-          break;
+        } else if (result.status?.id === 5) {
+          status = "time_limit_exceeded";
+          errorMessage = result.stderr;
+        } else if (result.status?.id === 4) {
+          status = "wrong_answer";
+        } else if (result.status?.id === 3) {
+          status = "accepted";
+        } else {
+          status = "runtime_error";
+          errorMessage = result.message || "Unknown Judge0 error";
         }
-
-        // Check output against expected output
         let actualOutput = (result.stdout || "").trim();
         const expectedOutput = testCase.expected_output.trim();
-        
-        // For Java, we need to format the output to match the expected format
-        if (language === 'java') {
+        if (language === "java") {
           actualOutput = formatJavaOutput(actualOutput, expectedOutput);
         }
-        
         const passed = actualOutput === expectedOutput;
-
-        console.log(`Test case ${testCase.id} result:`, {
-          passed,
-          actualOutput,
-          expectedOutput
-        });
-
-        if (passed) {
-          passedCount++;
-        } else if (status === "accepted") {
-          status = "wrong_answer";
-        }
-
-        // Track execution metrics
+        if (passed) passedCount++;
+        else if (status === "accepted") status = "wrong_answer";
         const executionTime = result.time ? result.time * 1000 : 0;
         totalExecutionTime += executionTime;
-        
         const memoryUsed = result.memory || 0;
         maxMemoryUsed = Math.max(maxMemoryUsed, memoryUsed);
-
-        // Add test result
         testResults.push({
           test_case_id: testCase.id,
           input: testCase.input,
@@ -217,27 +299,15 @@ serve(async (req) => {
           is_sample: testCase.is_sample
         });
       } catch (error) {
-        console.error("Error executing code:", error);
+        console.error("⚠️ Error executing code:", error);
         status = "runtime_error";
         errorMessage = error.message;
         break;
       }
     }
-
     const avgExecutionTime = testResults.length > 0 ? totalExecutionTime / testResults.length : 0;
-
-    console.log(`Submission results: status=${status}, passed=${passedCount}/${testCases.length}`);
-    console.log("Final update values:", {
-      status,
-      test_cases_passed: passedCount,
-      test_cases_total: testCases.length,
-      execution_time_ms: avgExecutionTime,
-      memory_used_mb: maxMemoryUsed / 1024,
-      error_message: errorMessage
-    });
-
-    console.log("Updating submission with final results");
-    const { error: finalUpdateError } = await supabaseClient.from("problem_submissions").update({
+    console.log(`🏁 Submission results: status=${status}, passed=${passedCount}/${testCases.length}`);
+    await supabaseClient.from("problem_submissions").update({
       status,
       test_cases_passed: passedCount,
       test_cases_total: testCases.length,
@@ -245,190 +315,52 @@ serve(async (req) => {
       memory_used_mb: maxMemoryUsed / 1024,
       error_message: errorMessage
     }).eq("id", submission.id);
-
-    if (finalUpdateError) {
-      console.error("Error updating submission with final results:", finalUpdateError);
-    } else {
-      console.log("Submission updated with final results");
-    }
-
-    // Update user stats if submission was successful
-    if (status === "accepted") {
-      console.log("Submission was successful, updating user stats");
-      
-      // Check if user already has stats for this problem
-      console.log("Checking for existing user stats");
-      const { data: existingStats, error: statsError } = await supabaseClient
-        .from("user_problem_stats")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("problem_id", problemId)
-        .maybeSingle();
-
-      if (statsError) {
-        console.error("Error checking for existing stats:", statsError);
-      } else {
-        console.log("Existing stats found:", existingStats);
+    const submissionResult = {
+      status,
+      execution_time_ms: avgExecutionTime,
+      memory_used_mb: maxMemoryUsed / 1024,
+      test_cases_passed: passedCount,
+      test_cases_total: testCases.length
+    };
+    await updateUserProblemStats(supabaseClient, submissionResult, user.id, problemId, problem.points);
+    return new Response(JSON.stringify({
+      submission_id: submission.id,
+      status,
+      test_cases_passed: passedCount,
+      test_cases_total: testCases.length,
+      execution_time_ms: avgExecutionTime,
+      memory_used_mb: maxMemoryUsed / (1024 * 1024),
+      error_message: errorMessage,
+      test_results: testResults.filter((r)=>r.is_sample)
+    }), {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
       }
-
-      if (existingStats) {
-        console.log("Updating existing user stats");
-        const updateData = {
-          attempts: existingStats.attempts + 1,
-          solved: true,
-          best_execution_time_ms: Math.min(
-            existingStats.best_execution_time_ms || Infinity,
-            avgExecutionTime
-          ),
-          best_memory_used_mb: Math.min(
-            existingStats.best_memory_used_mb || Infinity,
-            maxMemoryUsed / 1024
-          ),
-          points_earned: problem.points,
-          last_attempted_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        
-        console.log("Update data:", updateData);
-        
-        const { error: updateStatsError } = await supabaseClient
-          .from("user_problem_stats")
-          .update(updateData)
-          .eq("user_id", user.id)
-          .eq("problem_id", problemId);
-
-        if (updateStatsError) {
-          console.error("Error updating user stats:", updateStatsError);
-        } else {
-          console.log("User stats updated successfully");
-        }
-      } else {
-        console.log("Creating new user stats");
-        const newStatsData = {
-          user_id: user.id,
-          problem_id: problemId,
-          attempts: 1,
-          solved: true,
-          best_execution_time_ms: avgExecutionTime,
-          best_memory_used_mb: maxMemoryUsed / 1024,
-          points_earned: problem.points,
-          last_attempted_at: new Date().toISOString(),
-        };
-        
-        console.log("New stats data:", newStatsData);
-        
-        const { data: newStats, error: createStatsError } = await supabaseClient
-          .from("user_problem_stats")
-          .insert(newStatsData)
-          .select();
-
-        if (createStatsError) {
-          console.error("Error creating user stats:", createStatsError);
-        } else {
-          console.log("New user stats created:", newStats);
-        }
-      }
-    } else {
-      console.log("Submission was not successful, updating attempts count only");
-      
-      // Update attempts count even if not solved
-      const { data: existingStats, error: statsError } = await supabaseClient
-        .from("user_problem_stats")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("problem_id", problemId)
-        .maybeSingle();
-
-      if (statsError) {
-        console.error("Error checking for existing stats:", statsError);
-      }
-
-      if (existingStats) {
-        console.log("Updating attempts count in existing stats");
-        const updateData = {
-          attempts: existingStats.attempts + 1,
-          last_attempted_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        
-        console.log("Update data for attempts:", updateData);
-        
-        const { error: updateStatsError } = await supabaseClient
-          .from("user_problem_stats")
-          .update(updateData)
-          .eq("user_id", user.id)
-          .eq("problem_id", problemId);
-
-        if (updateStatsError) {
-          console.error("Error updating attempts count:", updateStatsError);
-        } else {
-          console.log("Attempts count updated successfully");
-        }
-      } else {
-        console.log("Creating new user stats with attempts=1, solved=false");
-        const newStatsData = {
-          user_id: user.id,
-          problem_id: problemId,
-          attempts: 1,
-          solved: false,
-          last_attempted_at: new Date().toISOString(),
-        };
-        
-        console.log("New stats data for attempts:", newStatsData);
-        
-        const { data: newStats, error: createStatsError } = await supabaseClient
-          .from("user_problem_stats")
-          .insert(newStatsData)
-          .select();
-
-        if (createStatsError) {
-          console.error("Error creating user stats:", createStatsError);
-        } else {
-          console.log("New user stats created with attempts=1:", newStats);
-        }
-      }
-    }
-
-    // Return results
-    console.log("Returning results to client");
-    return new Response(
-      JSON.stringify({
-        submission_id: submission.id,
-        status,
-        test_cases_passed: passedCount,
-        test_cases_total: testCases.length,
-        execution_time_ms: avgExecutionTime,
-        memory_used_mb: maxMemoryUsed / 1024,
-        error_message: errorMessage,
-        test_results: testResults.filter(result => result.is_sample), // Only return sample test results
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    });
   } catch (error) {
-    console.error("Error in judge-problem function:", error);
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    console.error("🚫 Error in judge-problem function:", error);
+    return new Response(JSON.stringify({
+      error: "Internal server error"
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
       }
-    );
+    });
   }
 });
-
-// Language mapping to Judge0 language IDs
-function mapLanguageToJudge0Id(language: string): number {
-  const mapping: Record<string, number> = {
-    javascript: 63,  // Node.js
+function mapLanguageToJudge0Id(language) {
+  const mapping = {
+    javascript: 63,
     typescript: 74,
-    python: 71,      // Python 3
-    java: 62,        // JDK
-    cpp: 54,         // C++ (GCC)
-    c: 50,           // C (GCC)
-    csharp: 51,      // C#
+    python: 71,
+    java: 62,
+    cpp: 54,
+    c: 50,
+    csharp: 51,
     ruby: 72,
     go: 60,
     rust: 73,
@@ -436,34 +368,22 @@ function mapLanguageToJudge0Id(language: string): number {
     swift: 83,
     kotlin: 78
   };
-  return mapping[language] || 71; // Default to Python 3
+  return mapping[language.toLowerCase()] || 71; // Default to Python
 }
-
-// Format Java input to handle array of characters
-function formatJavaInput(input: string): string {
+function formatJavaInput(input) {
   try {
-    // Try to parse the input as JSON
     const parsed = JSON.parse(input.replace(/'/g, '"'));
-    
-    // If it's an array of characters, join them into a string
-    if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string' && item.length === 1)) {
+    if (Array.isArray(parsed) && parsed.every((item)=>typeof item === 'string' && item.length === 1)) {
       return parsed.join('');
     }
-    
-    // Otherwise, return the original input
     return input;
   } catch (e) {
-    // If parsing fails, return the original input
     return input;
   }
 }
-
-// Format Java output to match expected format
-function formatJavaOutput(output: string, expectedOutput: string): string {
+function formatJavaOutput(output, expectedOutput) {
   try {
-    // If the expected output looks like a JSON array
     if (expectedOutput.startsWith('[') && expectedOutput.endsWith(']')) {
-      // Convert the output string to an array of characters
       const chars = output.trim().split('');
       return JSON.stringify(chars);
     }
@@ -472,12 +392,9 @@ function formatJavaOutput(output: string, expectedOutput: string): string {
     return output;
   }
 }
-
-// Prepare code for different languages to ensure proper execution
-function prepareCodeForLanguage(code: string, language: string, starterCode: string, testInput: string): string {
-  switch (language) {
+function prepareCodeForLanguage(code, language, starterCode, testInput) {
+  switch(language){
     case 'javascript':
-      // For JavaScript, we need to parse the input and call the function
       return `
 // Starter code (if any)
 ${starterCode}
@@ -489,37 +406,28 @@ ${code}
 const input = process.stdin.read();
 if (input) {
   try {
-    // Parse the input string to JavaScript objects
     const parsedInput = JSON.parse(input.replace(/'/g, '"'));
     
-    // Handle different input formats
     let result;
     if (Array.isArray(parsedInput)) {
-      // If input is a single array
       result = reverseString(parsedInput);
     } else if (typeof parsedInput === 'string') {
-      // If input is a string
       result = reverseString(parsedInput);
     } else if (Array.isArray(parsedInput[0])) {
-      // If input is an array of arrays
       const args = parsedInput;
       result = reverseString(...args);
     } else {
-      // If input is an array of arguments
       const args = parsedInput;
       result = reverseString(...args);
     }
     
-    // Output the result as a JSON string
     console.log(JSON.stringify(result));
   } catch (error) {
     console.error('Error processing input:', error.message);
   }
 }
       `;
-    
     case 'python':
-      // For Python, we need to parse the input and call the function
       return `
 # Starter code (if any)
 ${starterCode}
@@ -534,49 +442,37 @@ import json
 input_data = sys.stdin.read().strip()
 if input_data:
     try:
-        # Parse the input string to Python objects
         parsed_input = json.loads(input_data.replace("'", '"'))
         
-        # Handle different input formats
         if isinstance(parsed_input, list):
             if len(parsed_input) == 2 and isinstance(parsed_input[1], (int, str)):
-                # If input is [array, target]
                 result = reverseString(*parsed_input)
             else:
-                # If input is a single array
                 result = reverseString(parsed_input)
         else:
-            # If input is a single value
             result = reverseString(parsed_input)
         
-        # Output the result as a JSON string
         print(json.dumps(result))
     except Exception as e:
         print(f"Error processing input: {str(e)}", file=sys.stderr)
       `;
-    
     case 'java':
-      // For Java, create a complete program with the Solution class
       return `
 import java.util.*;
 
-// Main class to handle input/output
 public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         String input = scanner.nextLine();
         scanner.close();
-        
+
         try {
-            // Parse input string to get character array
             String inputStr = input.trim();
             char[] s = inputStr.toCharArray();
-            
-            // Create solution instance and call reverseString
+
             Solution solution = new Solution();
             solution.reverseString(s);
-            
-            // Print the reversed string
+
             System.out.println(new String(s));
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
@@ -585,13 +481,10 @@ public class Main {
     }
 }
 
-// User's solution class
 class Solution {
     ${code}
 }`;
-    
     case 'cpp':
-      // If code doesn't have a main function, add one
       if (!code.includes('int main(')) {
         return `
 #include <iostream>
@@ -605,15 +498,12 @@ ${starterCode}
 
 ${code}
 
-// Parse input string to vector
 vector<char> parseInput(string input) {
     vector<char> result;
-    // Remove brackets and quotes
     input = input.substr(1, input.length() - 2);
     stringstream ss(input);
     string item;
     while (getline(ss, item, ',')) {
-        // Remove quotes and whitespace
         item.erase(remove_if(item.begin(), item.end(), [](char c) { return c == '"' || c == ' '; }), item.end());
         if (!item.empty()) {
             result.push_back(item[0]);
@@ -628,11 +518,9 @@ int main() {
     
     vector<char> s = parseInput(input);
     
-    // Call the solution function
     Solution solution;
     solution.reverseString(s);
     
-    // Output the result
     cout << "[";
     for (size_t i = 0; i < s.size(); ++i) {
         cout << "\"" << s[i] << "\"";
@@ -645,9 +533,7 @@ int main() {
         `;
       }
       break;
-      
     case 'csharp':
-      // If code doesn't have a Main method, add one
       if (!code.includes('static void Main')) {
         return `
 using System;
@@ -662,16 +548,13 @@ ${code}
 class Program {
     static void Main(string[] args) {
         string input = Console.ReadLine();
-        
+
         try {
-            // Parse input as character array
             char[] s = JsonSerializer.Deserialize<char[]>(input);
-            
-            // Create a new instance and call the method
+
             Solution solution = new Solution();
             solution.ReverseString(s);
-            
-            // Output the result
+
             Console.WriteLine(JsonSerializer.Serialize(s));
         }
         catch (Exception e) {
@@ -687,6 +570,5 @@ class Solution {
       }
       break;
   }
-  
-  return code; // Return original code for other languages
+  return code;
 }

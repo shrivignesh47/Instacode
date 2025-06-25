@@ -1,15 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
   Filter, 
   Award, 
   Code, 
-  Zap, 
-  BarChart, 
-  Clock, 
-  CheckCircle, 
-  XCircle,
   ChevronDown,
   ChevronUp,
   Plus,
