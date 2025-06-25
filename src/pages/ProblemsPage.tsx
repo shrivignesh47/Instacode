@@ -103,6 +103,9 @@ const ProblemsPage = () => {
     };
   }, []);
 
+  // Check if current user is the specific user who should see the buttons
+  const isAuthorizedUser = user?.id === '0eae03df-17f8-4787-b6cb-aed5c516187e';
+
   return (
     <div className="max-w-6xl mx-auto px-4 lg:px-0">
       {/* Header */}
@@ -251,68 +254,70 @@ const ProblemsPage = () => {
         )}
       </div>
 
-      {/* Create Problem and Upload Buttons */}
-      <div className="flex justify-end mb-6 space-x-4">
-        <div className="relative">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowUploadDropdown(!showUploadDropdown);
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-          >
-            <Upload className="w-4 h-4" />
-            <span>Upload Problems</span>
-            <ChevronDown className="w-4 h-4" />
-          </button>
+      {/* Create Problem and Upload Buttons - Only visible to authorized user */}
+      {isAuthorizedUser && (
+        <div className="flex justify-end mb-6 space-x-4">
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowUploadDropdown(!showUploadDropdown);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Upload Problems</span>
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            
+            {showUploadDropdown && (
+              <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowUploadModal(true);
+                    setShowUploadDropdown(false);
+                  }}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-700 text-white rounded-t-lg flex items-center space-x-2"
+                >
+                  <FileUp className="w-4 h-4" />
+                  <span>Upload Excel File</span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownloadTemplate();
+                    setShowUploadDropdown(false);
+                  }}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-700 text-white flex items-center space-x-2"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download Template</span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowImportHistory(true);
+                    setShowUploadDropdown(false);
+                  }}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-700 text-white rounded-b-lg flex items-center space-x-2"
+                >
+                  <History className="w-4 h-4" />
+                  <span>Import History</span>
+                </button>
+              </div>
+            )}
+          </div>
           
-          {showUploadDropdown && (
-            <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowUploadModal(true);
-                  setShowUploadDropdown(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-gray-700 text-white rounded-t-lg flex items-center space-x-2"
-              >
-                <FileUp className="w-4 h-4" />
-                <span>Upload Excel File</span>
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDownloadTemplate();
-                  setShowUploadDropdown(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-gray-700 text-white flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download Template</span>
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowImportHistory(true);
-                  setShowUploadDropdown(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-gray-700 text-white rounded-b-lg flex items-center space-x-2"
-              >
-                <History className="w-4 h-4" />
-                <span>Import History</span>
-              </button>
-            </div>
-          )}
+          <button
+            onClick={() => navigate('/problems/create')}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Problem</span>
+          </button>
         </div>
-        
-        <button
-          onClick={() => navigate('/problems/create')}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Create Problem</span>
-        </button>
-      </div>
+      )}
 
       {/* Problems Grid */}
       {loading ? (
@@ -333,22 +338,24 @@ const ProblemsPage = () => {
               ? "Try adjusting your filters or search query"
               : "No problems are available at the moment"}
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2"
-            >
-              <Upload className="w-5 h-5" />
-              <span>Upload Problems</span>
-            </button>
-            <button
-              onClick={() => navigate('/problems/create')}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Create Problem</span>
-            </button>
-          </div>
+          {isAuthorizedUser && (
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2"
+              >
+                <Upload className="w-5 h-5" />
+                <span>Upload Problems</span>
+              </button>
+              <button
+                onClick={() => navigate('/problems/create')}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Create Problem</span>
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
