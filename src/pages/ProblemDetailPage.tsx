@@ -113,7 +113,7 @@ const ProblemDetailPage = () => {
 
     } catch (error) {
       console.error('Error running code:', error);
-      setOutput(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setOutput(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
     } finally {
       setIsRunning(false);
     }
@@ -566,7 +566,7 @@ const ProblemDetailPage = () => {
                       <div>
                         <div className="text-xs text-gray-400 mb-1">Expected Output:</div>
                         <pre className="bg-gray-800 p-2 rounded text-gray-300 text-xs overflow-x-auto">
-                          {testCase.expected_output}
+                          {result.expected_output}
                         </pre>
                       </div>
                       <div>
