@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Award, Clock, Calendar, Users, CheckCircle, XCircle } from 'lucide-react';
 import { CodingChallengeWithUser } from '../lib/supabaseClient';
 import { getDifficultyColor } from '../utils/problemUtils';
@@ -8,17 +7,19 @@ interface CodingChallengeCardProps {
   challenge: CodingChallengeWithUser;
   isParticipating?: boolean;
   isCompact?: boolean;
+  onClick?: () => void;
 }
 
 const CodingChallengeCard: React.FC<CodingChallengeCardProps> = ({ 
   challenge, 
   isParticipating = false,
-  isCompact = false 
+  isCompact = false,
+  onClick
 }) => {
-  const navigate = useNavigate();
-
-  const handleClick = () => {
-    navigate(`/challenges/${challenge.id}`);
+  const navigate = () => {
+    if (onClick) {
+      onClick();
+    }
   };
 
   const formatDate = (dateString: string | null) => {
@@ -46,7 +47,7 @@ const CodingChallengeCard: React.FC<CodingChallengeCardProps> = ({
   if (isCompact) {
     return (
       <div 
-        onClick={handleClick}
+        onClick={navigate}
         className="bg-gray-800 rounded-lg border border-gray-700 p-3 hover:border-gray-600 transition-colors cursor-pointer"
       >
         <div className="flex items-center justify-between mb-1">
@@ -72,7 +73,7 @@ const CodingChallengeCard: React.FC<CodingChallengeCardProps> = ({
 
   return (
     <div 
-      onClick={handleClick}
+      onClick={navigate}
       className="bg-gray-800 rounded-lg border border-gray-700 p-4 hover:border-gray-600 transition-colors cursor-pointer"
     >
       <div className="flex items-start justify-between mb-2">
