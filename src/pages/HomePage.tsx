@@ -370,6 +370,9 @@ const HomePage = () => {
           {/* Daily Challenge Widget */}
           <DailyChallengeWidget />
           
+          {/* Daily Problem Widget */}
+          <DailyProblemWidget />
+          
           {/* Challenge Stats Dashboard */}
           {user && <ChallengeStatsDashboard isCompact={true} />}
         </div>
