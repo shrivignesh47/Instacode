@@ -40,17 +40,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: Home, label: 'Home', path: '/home' },
     { icon: Compass, label: 'Explore', path: '/explore' },
     { icon: Plus, label: 'Create', path: '/create' },
+    { icon: MessageCircle, label: 'Messages', path: '/messages' },
     { icon: FileCode, label: 'Problems', path: '/problems' },
     { icon: Trophy, label: 'Challenges', path: '/challenges' },
     { icon: Code2, label: 'Playground', path: '/playground' },
     { icon: Zap, label: 'CodeAnalyser', path: '/code-analyser' },
     { icon: Award, label: 'Leaderboard', path: '/leaderboard' },
-    { icon: Users, label: 'Communities', path: '/communities' },
-    { icon: MessageCircle, label: 'Messages', path: '/messages' },
     { icon: Hash, label: 'Forums', path: '/forums' },
     { icon: User, label: 'Profile', path: `/profile/${user?.username}` },
     { icon: Bookmark, label: 'Saved', path: '/saved' },
-    { icon: TrendingUp, label: 'Trending', path: '/trending' },
   ];
 
   const handleLinkClick = () => {

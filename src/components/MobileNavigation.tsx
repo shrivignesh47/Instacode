@@ -76,7 +76,6 @@ const MobileNavigation = () => {
   const navigationItems = [
     { icon: Home, label: 'Home', path: '/home' },
     { icon: Plus, label: 'Create', path: '/create' },
-    { icon: Award, label: 'Challenges', path: '/challenges' },
     { icon: MessageCircle, label: 'Messages', path: '/messages' },
   ];
 
