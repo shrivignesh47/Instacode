@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Hash, Users, Code, Award, Search, Plus, Loader2 } from 'lucide-react';
 import { useForums } from '../hooks/useForums';
@@ -80,6 +80,9 @@ const ExplorePage = () => {
     navigate('/challenges/create');
   };
 
+  // Mobile view shows both forums and challenges
+  const isMobileView = window.innerWidth < 768;
+
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
@@ -88,8 +91,8 @@ const ExplorePage = () => {
         <p className="text-gray-400">Discover forums, join challenges, and connect with the developer community</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex space-x-1 bg-gray-800 rounded-lg p-1 mb-8">
+      {/* Desktop Tabs - Hidden on mobile */}
+      <div className="hidden md:flex space-x-1 bg-gray-800 rounded-lg p-1 mb-8">
         <button
           onClick={() => setActiveTab('forums')}
           className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium transition-colors ${
@@ -146,96 +149,214 @@ const ExplorePage = () => {
         )}
       </div>
 
-      {/* Content */}
-      {activeTab === 'forums' && (
-        <div>
-          <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
-            <Hash className="w-5 h-5 text-purple-500 mr-2" />
-            Developer Forums
-          </h2>
-          
-          {forumsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-purple-500 animate-spin mr-3" />
-              <span className="text-white text-lg">Loading forums...</span>
-            </div>
-          ) : forumsError ? (
-            <div className="bg-red-900 bg-opacity-50 border border-red-500 rounded-lg p-4 text-red-200">
-              Error loading forums: {forumsError}
-            </div>
-          ) : filteredForums.length === 0 ? (
-            <div className="text-center py-12">
-              <Hash className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <h3 className="text-xl font-medium text-white mb-2">No forums found</h3>
-              <p className="text-gray-400 mb-6">
-                {searchQuery ? "Try adjusting your search query" : "No forums are available at the moment"}
-              </p>
-              <button
-                onClick={handleCreateForum}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-              >
-                Create Your First Forum
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {filteredForums.map((forum) => (
-                <ForumCard
-                  key={forum.id}
-                  forum={forum}
-                  onJoin={handleJoinForum}
-                  onLeave={handleLeaveForum}
-                  onClick={handleForumClick}
-                />
-              ))}
+      {/* Desktop Content - Show based on active tab */}
+      {!isMobileView && (
+        <>
+          {activeTab === 'forums' && (
+            <div>
+              <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
+                <Hash className="w-5 h-5 text-purple-500 mr-2" />
+                Developer Forums
+              </h2>
+              
+              {forumsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 text-purple-500 animate-spin mr-3" />
+                  <span className="text-white text-lg">Loading forums...</span>
+                </div>
+              ) : forumsError ? (
+                <div className="bg-red-900 bg-opacity-50 border border-red-500 rounded-lg p-4 text-red-200">
+                  Error loading forums: {forumsError}
+                </div>
+              ) : filteredForums.length === 0 ? (
+                <div className="text-center py-12">
+                  <Hash className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-medium text-white mb-2">No forums found</h3>
+                  <p className="text-gray-400 mb-6">
+                    {searchQuery ? "Try adjusting your search query" : "No forums are available at the moment"}
+                  </p>
+                  <button
+                    onClick={handleCreateForum}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Create Your First Forum
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {filteredForums.map((forum) => (
+                    <ForumCard
+                      key={forum.id}
+                      forum={forum}
+                      onJoin={handleJoinForum}
+                      onLeave={handleLeaveForum}
+                      onClick={handleForumClick}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
-        </div>
+
+          {activeTab === 'challenges' && (
+            <div>
+              <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
+                <Award className="w-5 h-5 text-yellow-500 mr-2" />
+                Coding Challenges
+              </h2>
+              
+              {challengesLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 text-purple-500 animate-spin mr-3" />
+                  <span className="text-white text-lg">Loading challenges...</span>
+                </div>
+              ) : challengesError ? (
+                <div className="bg-red-900 bg-opacity-50 border border-red-500 rounded-lg p-4 text-red-200">
+                  Error loading challenges: {challengesError}
+                </div>
+              ) : filteredChallenges.length === 0 ? (
+                <div className="text-center py-12">
+                  <Award className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-medium text-white mb-2">No challenges found</h3>
+                  <p className="text-gray-400 mb-6">
+                    {searchQuery ? "Try adjusting your search query" : "No active challenges are available at the moment"}
+                  </p>
+                  <button
+                    onClick={handleCreateChallenge}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Create a Challenge
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {filteredChallenges.map((challenge) => (
+                    <CodingChallengeCard
+                      key={challenge.id}
+                      challenge={challenge}
+                      isParticipating={false}
+                      onClick={handleChallengeClick}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
-      {activeTab === 'challenges' && (
-        <div>
-          <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
-            <Award className="w-5 h-5 text-yellow-500 mr-2" />
-            Coding Challenges
-          </h2>
-          
-          {challengesLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-purple-500 animate-spin mr-3" />
-              <span className="text-white text-lg">Loading challenges...</span>
-            </div>
-          ) : challengesError ? (
-            <div className="bg-red-900 bg-opacity-50 border border-red-500 rounded-lg p-4 text-red-200">
-              Error loading challenges: {challengesError}
-            </div>
-          ) : filteredChallenges.length === 0 ? (
-            <div className="text-center py-12">
-              <Award className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <h3 className="text-xl font-medium text-white mb-2">No challenges found</h3>
-              <p className="text-gray-400 mb-6">
-                {searchQuery ? "Try adjusting your search query" : "No active challenges are available at the moment"}
-              </p>
+      {/* Mobile View - Show both forums and challenges */}
+      {isMobileView && (
+        <>
+          {/* Forums Section */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center justify-between">
+              <div className="flex items-center">
+                <Hash className="w-5 h-5 text-purple-500 mr-2" />
+                Developer Forums
+              </div>
+              <button
+                onClick={handleCreateForum}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm flex items-center"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Create
+              </button>
+            </h2>
+            
+            {forumsLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-6 h-6 text-purple-500 animate-spin mr-2" />
+                <span className="text-white">Loading forums...</span>
+              </div>
+            ) : forumsError ? (
+              <div className="bg-red-900 bg-opacity-50 border border-red-500 rounded-lg p-3 text-red-200 text-sm">
+                Error loading forums
+              </div>
+            ) : filteredForums.length === 0 ? (
+              <div className="text-center py-6">
+                <Hash className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-400 text-sm">
+                  {searchQuery ? "No forums match your search" : "No forums available"}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {filteredForums.slice(0, 3).map((forum) => (
+                  <ForumCard
+                    key={forum.id}
+                    forum={forum}
+                    onJoin={handleJoinForum}
+                    onLeave={handleLeaveForum}
+                    onClick={handleForumClick}
+                  />
+                ))}
+                {filteredForums.length > 3 && (
+                  <button
+                    onClick={() => setActiveTab('forums')}
+                    className="text-purple-400 hover:text-purple-300 text-center py-2"
+                  >
+                    View all {filteredForums.length} forums
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Challenges Section */}
+          <div>
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center justify-between">
+              <div className="flex items-center">
+                <Award className="w-5 h-5 text-yellow-500 mr-2" />
+                Coding Challenges
+              </div>
               <button
                 onClick={handleCreateChallenge}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm flex items-center"
               >
-                Create a Challenge
+                <Plus className="w-3 h-3 mr-1" />
+                Create
               </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {filteredChallenges.map((challenge) => (
-                <CodingChallengeCard
-                  key={challenge.id}
-                  challenge={challenge}
-                  isParticipating={false}
-                  onClick={() => handleChallengeClick(challenge.id)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+            </h2>
+            
+            {challengesLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-6 h-6 text-purple-500 animate-spin mr-2" />
+                <span className="text-white">Loading challenges...</span>
+              </div>
+            ) : challengesError ? (
+              <div className="bg-red-900 bg-opacity-50 border border-red-500 rounded-lg p-3 text-red-200 text-sm">
+                Error loading challenges
+              </div>
+            ) : filteredChallenges.length === 0 ? (
+              <div className="text-center py-6">
+                <Award className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-400 text-sm">
+                  {searchQuery ? "No challenges match your search" : "No active challenges available"}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {filteredChallenges.slice(0, 3).map((challenge) => (
+                  <CodingChallengeCard
+                    key={challenge.id}
+                    challenge={challenge}
+                    isParticipating={false}
+                    onClick={handleChallengeClick}
+                  />
+                ))}
+                {filteredChallenges.length > 3 && (
+                  <button
+                    onClick={() => setActiveTab('challenges')}
+                    className="text-purple-400 hover:text-purple-300 text-center py-2"
+                  >
+                    View all {filteredChallenges.length} challenges
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Create Forum Modal */}

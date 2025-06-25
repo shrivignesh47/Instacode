@@ -7,7 +7,7 @@ interface CodingChallengeCardProps {
   challenge: CodingChallengeWithUser;
   isParticipating?: boolean;
   isCompact?: boolean;
-  onClick?: () => void;
+  onClick?: (challengeId: string) => void;
 }
 
 const CodingChallengeCard: React.FC<CodingChallengeCardProps> = ({ 
@@ -16,9 +16,9 @@ const CodingChallengeCard: React.FC<CodingChallengeCardProps> = ({
   isCompact = false,
   onClick
 }) => {
-  const navigate = () => {
+  const handleClick = () => {
     if (onClick) {
-      onClick();
+      onClick(challenge.id);
     }
   };
 
@@ -47,7 +47,7 @@ const CodingChallengeCard: React.FC<CodingChallengeCardProps> = ({
   if (isCompact) {
     return (
       <div 
-        onClick={navigate}
+        onClick={handleClick}
         className="bg-gray-800 rounded-lg border border-gray-700 p-3 hover:border-gray-600 transition-colors cursor-pointer"
       >
         <div className="flex items-center justify-between mb-1">
@@ -73,7 +73,7 @@ const CodingChallengeCard: React.FC<CodingChallengeCardProps> = ({
 
   return (
     <div 
-      onClick={navigate}
+      onClick={handleClick}
       className="bg-gray-800 rounded-lg border border-gray-700 p-4 hover:border-gray-600 transition-colors cursor-pointer"
     >
       <div className="flex items-start justify-between mb-2">
