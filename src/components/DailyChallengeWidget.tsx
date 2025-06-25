@@ -4,20 +4,20 @@ import { Calendar, Award, Clock, CheckCircle, XCircle, ArrowRight, Loader2 } fro
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 
-interface DailyChallengeWidgetProps {
-  onChallengeSelect?: (challengeId: string) => void;
+interface DailyProblemWidgetProps {
+  onProblemSelect?: (problemId: string) => void;
 }
 
-const DailyChallengeWidget: React.FC<DailyChallengeWidgetProps> = ({ onChallengeSelect }) => {
+const DailyProblemWidget: React.FC<DailyProblemWidgetProps> = ({ onProblemSelect }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [dailyChallenge, setDailyChallenge] = useState<any | null>(null);
+  const [dailyProblem, setDailyProblem] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSolved, setIsSolved] = useState(false);
 
   useEffect(() => {
-    const fetchDailyChallenge = async () => {
+    const fetchDailyProblem = async () => {
       try {
         setLoading(true);
         setError(null);
@@ -25,114 +25,122 @@ const DailyChallengeWidget: React.FC<DailyChallengeWidgetProps> = ({ onChallenge
         // Get today's date in ISO format (YYYY-MM-DD)
         const today = new Date().toISOString().split('T')[0];
 
-        // Fetch daily challenge for today
+        // Fetch daily problem for today
         const { data: dailyData, error: dailyError } = await supabase
-          .from('daily_challenges')
+          .from('daily_problems')
           .select(`
             id,
             date,
-            challenges (
+            problems (
               id,
               title,
+              slug,
               description,
               difficulty,
               category,
-              points,
-              time_limit_ms
+              time_limit_ms,
+              created_by,
+              profiles:created_by (
+                username,
+                display_name,
+                avatar_url
+              )
             )
           `)
           .eq('date', today)
           .single();
 
         if (dailyError) {
-          // If no daily challenge for today, fetch the most recent one
-          const { data: recentData, error: recentError } = await supabase
-            .from('daily_challenges')
+          // If no daily problem for today, fetch a random problem
+          const { data: problemsData, error: problemsError } = await supabase
+            .from('problems')
             .select(`
               id,
-              date,
-              challenges (
-                id,
-                title,
-                description,
-                difficulty,
-                category,
-                points,
-                time_limit_ms
+              title,
+              slug,
+              description,
+              difficulty,
+              category,
+              time_limit_ms,
+              created_by,
+              profiles:created_by (
+                username,
+                display_name,
+                avatar_url
               )
             `)
-            .order('date', { ascending: false })
-            .limit(1)
-            .single();
+            .order('created_at', { ascending: false })
+            .limit(20);
 
-          if (recentError) {
-            // If no daily challenges at all, fetch a random challenge
-            const { data: randomData, error: randomError } = await supabase
-              .from('challenges')
-              .select(`
-                id,
-                title,
-                description,
-                difficulty,
-                category,
-                points,
-                time_limit_ms
-              `)
-              .limit(1)
+          if (problemsError) {
+            throw new Error('Failed to fetch problems');
+          }
+
+          if (problemsData && problemsData.length > 0) {
+            // Select a random problem from the results
+            const randomIndex = Math.floor(Math.random() * problemsData.length);
+            const randomProblem = problemsData[randomIndex];
+
+            // Create a new daily problem entry
+            const { data: newDailyProblem, error: createError } = await supabase
+              .from('daily_problems')
+              .insert({
+                problem_id: randomProblem.id,
+                date: today
+              })
+              .select()
               .single();
 
-            if (randomError) {
-              throw new Error('No challenges available');
+            if (createError) {
+              console.error('Error creating daily problem:', createError);
+              // Still use the random problem even if we couldn't save it
+              setDailyProblem({
+                problems: randomProblem,
+                date: today
+              });
+            } else {
+              // Set the daily problem with the newly created entry
+              setDailyProblem({
+                ...newDailyProblem,
+                problems: randomProblem
+              });
             }
-
-            setDailyChallenge({
-              ...randomData,
-              is_random: true,
-              date: today
-            });
           } else {
-            setDailyChallenge({
-              ...recentData.challenges,
-              date: recentData.date,
-              is_recent: true
-            });
+            throw new Error('No problems available');
           }
         } else {
-          setDailyChallenge({
-            ...dailyData.challenges,
-            date: dailyData.date
-          });
+          setDailyProblem(dailyData);
         }
 
-        // Check if user has solved this challenge
-        if (user && dailyChallenge?.id) {
+        // Check if user has solved this problem
+        if (user && dailyProblem?.problems?.id) {
           const { data: statData } = await supabase
-            .from('user_challenge_stats')
+            .from('user_problem_stats')
             .select('solved')
             .eq('user_id', user.id)
-            .eq('challenge_id', dailyChallenge.id)
+            .eq('problem_id', dailyProblem.problems.id)
             .single();
 
           setIsSolved(statData?.solved || false);
         }
       } catch (err: any) {
-        console.error('Error fetching daily challenge:', err);
-        setError(err.message || 'Failed to load daily challenge');
+        console.error('Error fetching daily problem:', err);
+        setError(err.message || 'Failed to load daily problem');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDailyChallenge();
+    fetchDailyProblem();
   }, [user]);
 
-  const handleChallengeClick = () => {
-    if (!dailyChallenge) return;
+  const handleProblemClick = () => {
+    if (!dailyProblem?.problems) return;
     
-    if (onChallengeSelect) {
-      onChallengeSelect(dailyChallenge.id);
+    if (onProblemSelect) {
+      onProblemSelect(dailyProblem.problems.id);
     } else {
-      navigate(`/challenges/${dailyChallenge.id}`);
+      navigate(`/problems/${dailyProblem.problems.slug}`);
     }
   };
 
@@ -164,57 +172,59 @@ const DailyChallengeWidget: React.FC<DailyChallengeWidgetProps> = ({ onChallenge
       <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
         <div className="flex items-center justify-center py-6">
           <Loader2 className="w-6 h-6 text-purple-500 animate-spin mr-2" />
-          <span className="text-gray-300">Loading daily challenge...</span>
+          <span className="text-gray-300">Loading daily problem...</span>
         </div>
       </div>
     );
   }
 
-  if (error || !dailyChallenge) {
+  if (error || !dailyProblem) {
     return (
       <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
         <div className="text-center py-6">
           <Calendar className="w-12 h-12 text-gray-500 mx-auto mb-3" />
-          <p className="text-gray-300 mb-2">No daily challenge available</p>
-          <p className="text-gray-400 text-sm">Check back later for new challenges</p>
+          <p className="text-gray-300 mb-2">No daily problem available</p>
+          <p className="text-gray-400 text-sm">Check back later for new problems</p>
         </div>
       </div>
     );
   }
+
+  const problem = dailyProblem.problems;
 
   return (
     <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
       <div className="px-4 py-3 bg-gray-700 border-b border-gray-600 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Calendar className="w-4 h-4 text-purple-400" />
-          <h3 className="text-sm font-medium text-white">Daily Challenge</h3>
+          <h3 className="text-sm font-medium text-white">Daily Problem</h3>
         </div>
-        <span className="text-xs text-gray-400">{formatDate(dailyChallenge.date)}</span>
+        <span className="text-xs text-gray-400">{formatDate(dailyProblem.date)}</span>
       </div>
       
       <div className="p-4">
         <div 
           className="hover:bg-gray-700 p-3 rounded-lg transition-colors cursor-pointer"
-          onClick={handleChallengeClick}
+          onClick={handleProblemClick}
         >
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-lg font-semibold text-white">{dailyChallenge.title}</h4>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(dailyChallenge.difficulty)}`}>
-              {dailyChallenge.difficulty}
+            <h4 className="text-lg font-semibold text-white">{problem.title}</h4>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(problem.difficulty)}`}>
+              {problem.difficulty}
             </span>
           </div>
           
-          <p className="text-gray-400 text-sm mb-3 line-clamp-2">{dailyChallenge.description}</p>
+          <p className="text-gray-400 text-sm mb-3 line-clamp-2">{problem.description}</p>
           
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4 text-sm">
               <span className="flex items-center space-x-1 text-yellow-500">
                 <Award className="w-4 h-4" />
-                <span>{dailyChallenge.points} points</span>
+                <span>120 points</span>
               </span>
               <span className="flex items-center space-x-1 text-gray-400">
                 <Clock className="w-4 h-4" />
-                <span>{dailyChallenge.time_limit_ms / 1000}s</span>
+                <span>{problem.time_limit_ms / 1000}s</span>
               </span>
             </div>
             
@@ -238,10 +248,10 @@ const DailyChallengeWidget: React.FC<DailyChallengeWidgetProps> = ({ onChallenge
         
         <div className="mt-3 pt-3 border-t border-gray-700 flex justify-end">
           <button
-            onClick={handleChallengeClick}
+            onClick={handleProblemClick}
             className="flex items-center text-purple-400 hover:text-purple-300 text-sm"
           >
-            Solve Challenge
+            Solve Problem
             <ArrowRight className="w-4 h-4 ml-1" />
           </button>
         </div>
@@ -250,4 +260,4 @@ const DailyChallengeWidget: React.FC<DailyChallengeWidgetProps> = ({ onChallenge
   );
 };
 
-export default DailyChallengeWidget;
+export default DailyProblemWidget;
