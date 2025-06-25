@@ -8,17 +8,25 @@ interface ProblemCardProps {
   problem: ProblemWithUser;
   isSolved?: boolean;
   isCompact?: boolean;
+  onCardClick?: (problemId: string) => void; // New prop to override default click behavior
 }
 
 const ProblemCard: React.FC<ProblemCardProps> = ({ 
   problem, 
   isSolved = false,
-  isCompact = false 
+  isCompact = false,
+  onCardClick
 }) => {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/problems/${problem.slug}`);
+    if (onCardClick) {
+      // Use the provided click handler if available
+      onCardClick(problem.id);
+    } else {
+      // Otherwise use the default navigation behavior
+      navigate(`/problems/${problem.slug}`);
+    }
   };
 
   if (isCompact) {

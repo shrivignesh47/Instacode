@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -40,7 +40,7 @@ const CreateChallengePage = () => {
   const { problems, loading: problemsLoading } = useProblems();
 
   // Set default dates
-  useEffect(() => {
+  React.useEffect(() => {
     const now = new Date();
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -332,7 +332,6 @@ const CreateChallengePage = () => {
               {filteredProblems.map((problem) => (
                 <div 
                   key={problem.id}
-                  onClick={() => toggleProblemSelection(problem.id)}
                   className={`relative cursor-pointer ${
                     selectedProblemIds.includes(problem.id) 
                       ? 'ring-2 ring-purple-500' 
@@ -343,6 +342,7 @@ const CreateChallengePage = () => {
                     problem={problem}
                     isSolved={problem.user_stats?.solved || false}
                     isCompact={true}
+                    onCardClick={toggleProblemSelection} // Pass the toggle function to override default click behavior
                   />
                   {selectedProblemIds.includes(problem.id) && (
                     <div className="absolute top-2 right-2 w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
