@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Heart, MessageCircle, Share, Bookmark, Play, ExternalLink, Github, CheckCircle, Edit, MoreHorizontal } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -38,6 +37,42 @@ const PostCard: React.FC<{
   const [inFeedIsRunning, setInFeedIsRunning] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes_count);
   const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
+  const [bookmarkId, setBookmarkId] = useState<string | null>(null);
+
+  // Check if post is bookmarked on component mount
+  React.useEffect(() => {
+    if (user) {
+      checkIfBookmarked();
+    }
+  }, [user, post.id]);
+
+  const checkIfBookmarked = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('bookmarks')
+        .select('id')
+        .eq('post_id', post.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error checking bookmark status:', error);
+        return;
+      }
+
+      if (data) {
+        setIsSaved(true);
+        setBookmarkId(data.id);
+      } else {
+        setIsSaved(false);
+        setBookmarkId(null);
+      }
+    } catch (error) {
+      console.error('Error checking bookmark status:', error);
+    }
+  };
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -81,6 +116,43 @@ const PostCard: React.FC<{
       }
     } catch (error) {
       console.error('Error toggling like:', error);
+    }
+  };
+
+  const handleBookmark = async () => {
+    if (!user) return;
+
+    try {
+      if (isSaved && bookmarkId) {
+        // Remove bookmark
+        const { error } = await supabase
+          .from('bookmarks')
+          .delete()
+          .eq('id', bookmarkId)
+          .eq('user_id', user.id);
+
+        if (!error) {
+          setIsSaved(false);
+          setBookmarkId(null);
+        }
+      } else {
+        // Add bookmark
+        const { data, error } = await supabase
+          .from('bookmarks')
+          .insert({
+            post_id: post.id,
+            user_id: user.id
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          setIsSaved(true);
+          setBookmarkId(data.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
     }
   };
 
@@ -417,7 +489,7 @@ const PostCard: React.FC<{
           </div>
           
           <button
-            onClick={() => setIsSaved(!isSaved)}
+            onClick={handleBookmark}
             className={`transition-colors ${
               isSaved ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-500'
             }`}
