@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { Plus, Code, Image, Video, FolderOpen } from 'lucide-react';
 import PostCard from '../components/PostCard';
 import CreatePostModal from '../components/CreatePostModal';
-import DailyChallengeWidget from '../components/DailyChallengeWidget';
+import DailyProblemWidget from '../components/DailyProblemWidget';
 import ChallengeStatsDashboard from '../components/ChallengeStatsDashboard';
 import { supabase, type PostWithUser } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
+import DailyChallengeWidget from '../components/DailyChallengeWidget';
 
 const HomePage = () => {
   const { user } = useAuth();
@@ -275,9 +276,9 @@ const HomePage = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-0">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Feed - 2/3 width on large screens */}
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Main Feed - 8/12 width on large screens */}
+        <div className="lg:col-span-8">
           {/* Create Post Section */}
           <div className="bg-gray-800 rounded-xl p-3 sm:p-4 lg:p-6 mb-4 sm:mb-6 border border-gray-700">
             <div className="flex items-center space-x-3 sm:space-x-4 mb-3 sm:mb-4">
@@ -365,13 +366,71 @@ const HomePage = () => {
           )}
         </div>
 
-        {/* Right Sidebar - 1/3 width on large screens */}
-        <div className="space-y-6">
-          {/* Daily Challenge Widget */}
-          <DailyChallengeWidget />
-          
-          {/* Challenge Stats Dashboard */}
-          {user && <ChallengeStatsDashboard isCompact={true} />}
+        {/* Right Sidebar - 4/12 width on large screens */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Daily Problem Widget */}
+          <div className="sticky top-20">
+            <div className="space-y-6">
+              <DailyProblemWidget />
+              
+              {/* Daily Challenge Widget */}
+              <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                <div className="px-4 py-3 bg-gray-700 border-b border-gray-600">
+                  <h3 className="text-sm font-medium text-white">Daily Challenges</h3>
+                </div>
+                
+                <div className="p-4 space-y-4">
+                  {/* LeetCode Challenge */}
+                  <div className="bg-gray-700 rounded-lg p-3">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Code className="w-4 h-4 text-yellow-500" />
+                      <h4 className="text-sm font-medium text-white">LeetCode</h4>
+                    </div>
+                    <h5 className="text-white font-medium mb-2">Kth Smallest Product of Two Sorted Arrays</h5>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="px-2 py-1 bg-red-900 bg-opacity-30 text-red-500 rounded-full">Hard</span>
+                      <span className="text-gray-400">120 points</span>
+                    </div>
+                  </div>
+                  
+                  {/* GeeksForGeeks Challenge */}
+                  <div className="bg-gray-700 rounded-lg p-3">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Code className="w-4 h-4 text-green-500" />
+                      <h4 className="text-sm font-medium text-white">GeeksForGeeks</h4>
+                    </div>
+                    <h5 className="text-white font-medium mb-2">Game with String</h5>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="px-2 py-1 bg-yellow-900 bg-opacity-30 text-yellow-500 rounded-full">Medium</span>
+                      <span className="text-gray-400">23h 59m remaining</span>
+                    </div>
+                  </div>
+                  
+                  {/* Weekly Contest */}
+                  <div className="bg-gray-700 rounded-lg p-3">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Code className="w-4 h-4 text-blue-500" />
+                      <h4 className="text-sm font-medium text-white">CodeChef Weekly</h4>
+                    </div>
+                    <h5 className="text-white font-medium mb-2">Weekend Dev Challenge 04</h5>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-400">Projects in Python & Flask</span>
+                      <span className="text-gray-400">Starts in 2 days</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="px-4 py-3 border-t border-gray-700 text-right">
+                  <a href="/challenges" className="text-purple-400 hover:text-purple-300 text-sm">
+                    View All Challenges
+                  </a>
+                </div>
+              </div>
+              
+              {/* Challenge Stats Dashboard */}
+              {user && <ChallengeStatsDashboard isCompact={true} />}
+            </div>
+          </div>
         </div>
       </div>
 
