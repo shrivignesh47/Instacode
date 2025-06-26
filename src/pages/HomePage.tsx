@@ -6,6 +6,7 @@ import DailyChallengeWidget from '../components/DailyChallengeWidget';
 import ChallengeStatsDashboard from '../components/ChallengeStatsDashboard';
 import { supabase, type PostWithUser } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
+import DailyProblemWidget from '../components/DailyProblemWidget';
 
 const HomePage = () => {
   const { user } = useAuth();
