@@ -31,14 +31,17 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
   const [channel, setChannel] = useState<ReturnType<typeof supabase.channel> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  const loadMessages = useCallback(async () => {
-    if (!conversationId) {
+  const loadMessages = useCallback(async (convId?: string) => {
+    // Use provided convId or fall back to the prop
+    const targetConversationId = convId || conversationId;
+    
+    if (!targetConversationId) {
       console.warn('Cannot load messages - no conversation ID');
       return;
     }
 
     try {
-      console.log('Loading messages for conversation:', conversationId);
+      console.log('Loading messages for conversation:', targetConversationId);
 
       // Enhanced query with better error handling and ordering
       const { data, error } = await supabase
@@ -65,7 +68,7 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
             profiles:profiles!posts_user_id_fkey(username, avatar_url)
           )
         `)
-        .eq('conversation_id', conversationId)
+        .eq('conversation_id', targetConversationId)
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -111,11 +114,11 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
 
       console.log('Formatted messages:', formattedMessages);
       setMessages(formattedMessages);
-      await markMessagesAsRead(conversationId);
+      await markMessagesAsRead(targetConversationId);
     } catch (error) {
       console.error('Error loading messages:', error);
     }
-  }, [conversationId]);
+  }, []);
 
   const markMessagesAsRead = async (conversationId: string) => {
     if (!user) return;
@@ -157,11 +160,52 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
     );
   }, []);
 
+  // Set up real-time subscription when conversationId changes
+  useEffect(() => {
+    if (!conversationId || !user) return;
+
+    const channelName = `chat_${conversationId}`;
+    const newChannel = supabase.channel(channelName);
+
+    newChannel
+      .on('broadcast', { event: EVENT_MESSAGE_TYPE }, (payload) => {
+        console.log('Received real-time message:', payload);
+        const newMessage = payload.payload as RealtimeChatMessage;
+        setMessages((current) => {
+          // Check if message already exists to prevent duplicates
+          const exists = current.find(msg => msg.id === newMessage.id);
+          if (exists) {
+            console.log('Message already exists, skipping duplicate');
+            return current;
+          }
+          console.log('Adding new message to UI');
+          return [...current, newMessage];
+        });
+      })
+      .subscribe(async (status) => {
+        console.log('Realtime channel status:', status);
+        setIsConnected(status === 'SUBSCRIBED');
+      });
+
+    setChannel(newChannel);
+
+    return () => {
+      console.log('Cleaning up realtime channel');
+      supabase.removeChannel(newChannel);
+      setIsConnected(false);
+    };
+  }, [conversationId, user]);
+
   return { 
     messages, 
     sendMessage: async (content: string) => {
       if (!channel || !isConnected || !user || !conversationId) {
-        console.warn('Cannot send message - missing requirements');
+        console.warn('Cannot send message - missing requirements:', {
+          hasChannel: !!channel,
+          isConnected,
+          hasUser: !!user,
+          hasConversationId: !!conversationId
+        });
         return;
       }
 

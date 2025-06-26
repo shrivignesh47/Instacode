@@ -126,7 +126,8 @@ const MessagesPage = () => {
     setShowChatList(false);
     // Clear previous messages and load new ones
     setMessages([]);
-    loadMessages();
+    // Pass the conversation ID explicitly to loadMessages
+    loadMessages(conversation.id);
   };
 
   const handleBackToList = () => {
