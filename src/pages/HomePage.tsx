@@ -3,6 +3,7 @@ import { Plus, Code, Image, Video, FolderOpen } from 'lucide-react';
 import PostCard from '../components/PostCard';
 import CreatePostModal from '../components/CreatePostModal';
 import DailyChallengeWidget from '../components/DailyChallengeWidget';
+import DailyProblemWidget from '../components/DailyProblemWidget';
 import ChallengeStatsDashboard from '../components/ChallengeStatsDashboard';
 import { supabase, type PostWithUser } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
