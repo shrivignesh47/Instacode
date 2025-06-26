@@ -308,12 +308,6 @@ const ProfilePage = () => {
             onMessageClick={handleMessageClick}
           />
         </div>
-
-        {/* Challenge Stats Dashboard */}
-        <div className="mb-6">
-          <ChallengeStatsDashboard userId={profile.id} />
-        </div>
-
         {/* LeetCode Stats Section */}
         {profile.leetcode_username ? (
           <LeetCodeStats
@@ -342,6 +336,12 @@ const ProfilePage = () => {
             </button>
           </div>
         ) : null}
+
+        {/* Challenge Stats Dashboard */}
+        <div className="mb-6">
+          <ChallengeStatsDashboard userId={profile.id} />
+        </div>
+
 
         {/* Content Tabs - Mobile scrollable with proper container */}
         <div className="mb-4 sm:mb-6 w-full">

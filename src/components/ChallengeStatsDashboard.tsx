@@ -168,7 +168,7 @@ const ChallengeStatsDashboard: React.FC<ChallengeStatsDashboardProps> = ({
     <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
       <h3 className="text-xl font-semibold text-white mb-6 flex items-center">
         <Award className="w-6 h-6 text-yellow-500 mr-2" />
-        Coding Challenge Statistics
+        InstaCode Challenge Statistics
       </h3>
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

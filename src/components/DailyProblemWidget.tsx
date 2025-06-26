@@ -238,7 +238,7 @@ const DailyProblemWidget: React.FC<DailyProblemWidgetProps> = ({ onProblemSelect
                 ) : (
                   <span className="flex items-center text-gray-400 text-sm">
                     <XCircle className="w-4 h-4 mr-1" />
-                    Not completed
+                   
                   </span>
                 )}
               </div>
