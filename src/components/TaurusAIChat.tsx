@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Phone, PhoneOff, Video } from 'lucide-react';
+import { X, Phone, PhoneOff, Video, AlertCircle, Clock } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabaseClient';
 
 interface TaurusAIChatProps {
   isOpen: boolean;
@@ -12,20 +14,119 @@ interface ConversationSession {
   status: 'active' | 'ended' | 'connecting';
 }
 
+interface UserAccessState {
+  lastUsed: string | null;
+  timeRemaining: number; // in seconds
+}
+
+const MAX_SESSION_TIME = 180; // 3 minutes in seconds
+const COOLDOWN_PERIOD = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
 const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
+  const { user } = useAuth();
   const [conversationSession, setConversationSession] = useState<ConversationSession | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'failed'>('disconnected');
   const [error, setError] = useState<string | null>(null);
+  const [accessState, setAccessState] = useState<UserAccessState>({
+    lastUsed: null,
+    timeRemaining: MAX_SESSION_TIME
+  });
   
   const autoEndTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Load user's access state from Supabase or localStorage
+  useEffect(() => {
+    if (!user) return;
+    
+    const loadAccessState = async () => {
+      try {
+        // Try to get from Supabase first
+        const { data, error } = await supabase
+          .from('user_ai_access')
+          .select('last_used, time_remaining')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (error || !data) {
+          // If not in database, check localStorage
+          const savedState = localStorage.getItem(`taurus_access_${user.id}`);
+          if (savedState) {
+            const parsedState = JSON.parse(savedState);
+            setAccessState(parsedState);
+          }
+          return;
+        }
+        
+        // Calculate if cooldown period has passed
+        const lastUsed = data.last_used ? new Date(data.last_used) : null;
+        const now = new Date();
+        
+        if (lastUsed && (now.getTime() - lastUsed.getTime() >= COOLDOWN_PERIOD)) {
+          // Reset if 24 hours have passed
+          setAccessState({
+            lastUsed: null,
+            timeRemaining: MAX_SESSION_TIME
+          });
+        } else {
+          // Use stored state
+          setAccessState({
+            lastUsed: data.last_used,
+            timeRemaining: data.time_remaining || MAX_SESSION_TIME
+          });
+        }
+      } catch (err) {
+        console.error('Error loading access state:', err);
+        // Fallback to default state
+        setAccessState({
+          lastUsed: null,
+          timeRemaining: MAX_SESSION_TIME
+        });
+      }
+    };
+    
+    loadAccessState();
+  }, [user]);
+
+  // Save access state
+  const saveAccessState = async (state: UserAccessState) => {
+    if (!user) return;
+    
+    try {
+      // Save to Supabase
+      const { error } = await supabase
+        .from('user_ai_access')
+        .upsert({
+          user_id: user.id,
+          last_used: state.lastUsed,
+          time_remaining: state.timeRemaining
+        }, {
+          onConflict: 'user_id'
+        });
+      
+      if (error) {
+        console.error('Error saving access state to Supabase:', error);
+      }
+      
+      // Also save to localStorage as backup
+      localStorage.setItem(`taurus_access_${user.id}`, JSON.stringify(state));
+    } catch (err) {
+      console.error('Error saving access state:', err);
+    }
+  };
 
   // Clean up resources
   const cleanup = () => {
     if (autoEndTimerRef.current) {
       clearTimeout(autoEndTimerRef.current);
       autoEndTimerRef.current = null;
+    }
+    
+    if (sessionTimerRef.current) {
+      clearInterval(sessionTimerRef.current);
+      sessionTimerRef.current = null;
     }
     
     setConversationSession(null);
@@ -35,6 +136,33 @@ const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
 
   // Start conversation with Tavus
   const startConversation = async () => {
+    if (!user) {
+      setError('You must be logged in to use Taurus AI');
+      return;
+    }
+    
+    // Check if user has time remaining
+    if (accessState.timeRemaining <= 0) {
+      const lastUsedDate = accessState.lastUsed ? new Date(accessState.lastUsed) : null;
+      const now = new Date();
+      
+      if (lastUsedDate && (now.getTime() - lastUsedDate.getTime() < COOLDOWN_PERIOD)) {
+        // Calculate time until reset
+        const timeUntilReset = COOLDOWN_PERIOD - (now.getTime() - lastUsedDate.getTime());
+        const hoursUntilReset = Math.floor(timeUntilReset / (60 * 60 * 1000));
+        const minutesUntilReset = Math.floor((timeUntilReset % (60 * 60 * 1000)) / (60 * 1000));
+        
+        setError(`You've used your daily limit. Please wait ${hoursUntilReset}h ${minutesUntilReset}m before trying again.`);
+        return;
+      } else {
+        // Reset time if cooldown period has passed
+        setAccessState({
+          lastUsed: null,
+          timeRemaining: MAX_SESSION_TIME
+        });
+      }
+    }
+    
     if (isConnecting || conversationSession) return;
 
     setIsConnecting(true);
@@ -61,7 +189,7 @@ const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
           conversation_name: `Taurus AI Chat - ${Date.now()}`,
           conversational_context: 'You are Taurus, an expert AI coding assistant. Help users with programming questions, code reviews, debugging, and technical advice. Keep responses conversational and engaging since this is a live video chat. Always respond to user questions and provide helpful coding assistance.',
           properties: {
-            max_call_duration: 120, // 2 minutes
+            max_call_duration: accessState.timeRemaining, // Use remaining time
             participant_left_timeout: 30,
             participant_absent_timeout: 60,
             enable_recording: false,
@@ -90,11 +218,45 @@ const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
       setConversationSession(session);
       setConnectionStatus('connected');
 
-      // Set auto-end timer for 2 minutes
+      // Update access state with current time
+      const now = new Date();
+      const newAccessState = {
+        lastUsed: now.toISOString(),
+        timeRemaining: accessState.timeRemaining
+      };
+      setAccessState(newAccessState);
+      saveAccessState(newAccessState);
+
+      // Start countdown timer
+      sessionTimerRef.current = setInterval(() => {
+        setAccessState(prevState => {
+          const newTimeRemaining = Math.max(0, prevState.timeRemaining - 1);
+          
+          // Save updated time every 10 seconds
+          if (newTimeRemaining % 10 === 0) {
+            saveAccessState({
+              ...prevState,
+              timeRemaining: newTimeRemaining
+            });
+          }
+          
+          // End session if time runs out
+          if (newTimeRemaining === 0) {
+            endConversation();
+          }
+          
+          return {
+            ...prevState,
+            timeRemaining: newTimeRemaining
+          };
+        });
+      }, 1000);
+
+      // Set auto-end timer for remaining time
       autoEndTimerRef.current = setTimeout(() => {
-        console.log('Auto-ending conversation after 2 minutes');
+        console.log('Auto-ending conversation after time limit');
         endConversation();
-      }, 120000); // 2 minutes
+      }, accessState.timeRemaining * 1000);
 
       // Check conversation status periodically
       const statusInterval = setInterval(async () => {
@@ -152,6 +314,13 @@ const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  // Format time as mm:ss
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   // Cleanup on component unmount or modal close
   useEffect(() => {
     return () => {
@@ -200,6 +369,17 @@ const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
+        {/* Time Remaining Display */}
+        <div className="bg-gray-700 px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Clock className="w-4 h-4 text-gray-300" />
+            <span className="text-sm text-gray-300">Time remaining:</span>
+          </div>
+          <div className="text-sm font-mono bg-gray-800 px-3 py-1 rounded-md text-white">
+            {formatTime(accessState.timeRemaining)}
+          </div>
+        </div>
+
         {/* Video Area */}
         <div className="flex-1 bg-gray-900 relative overflow-hidden">
           {!conversationSession ? (
@@ -214,18 +394,23 @@ const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
               <p className="text-gray-300 mb-8 max-w-md">
                 Experience real-time AI conversation with video and voice. 
                 Ask coding questions, get help with debugging, or discuss architecture decisions.
-                Session will automatically end after 2 minutes.
+                {accessState.timeRemaining > 0 ? (
+                  <span> You have <span className="text-purple-400 font-semibold">{formatTime(accessState.timeRemaining)}</span> remaining today.</span>
+                ) : (
+                  <span> Your daily limit has been reached.</span>
+                )}
               </p>
               
               {error && (
-                <div className="bg-red-900 border border-red-600 rounded-lg p-4 mb-6 max-w-md">
+                <div className="bg-red-900 border border-red-600 rounded-lg p-4 mb-6 max-w-md flex items-start">
+                  <AlertCircle className="w-5 h-5 text-red-400 mr-2 flex-shrink-0 mt-0.5" />
                   <p className="text-red-200 text-sm">{error}</p>
                 </div>
               )}
               
               <button
                 onClick={startConversation}
-                disabled={isConnecting}
+                disabled={isConnecting || accessState.timeRemaining <= 0}
                 className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white rounded-xl font-semibold transition-all transform hover:scale-105 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center space-x-2"
               >
                 {isConnecting ? (
@@ -233,10 +418,15 @@ const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     <span>Connecting...</span>
                   </>
+                ) : accessState.timeRemaining <= 0 ? (
+                  <>
+                    <Clock className="w-5 h-5" />
+                    <span>Daily Limit Reached</span>
+                  </>
                 ) : (
                   <>
                     <Phone className="w-5 h-5" />
-                    <span>Start 2-Minute Chat</span>
+                    <span>Start Chat ({formatTime(accessState.timeRemaining)})</span>
                   </>
                 )}
               </button>
@@ -283,7 +473,7 @@ const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
             
             <div className="text-center mt-3">
               <p className="text-xs text-gray-400">
-                Ask me any coding questions - I'm here to help! (Auto-ends in 2 minutes)
+                Ask me any coding questions - I'm here to help! (Time remaining: {formatTime(accessState.timeRemaining)})
               </p>
             </div>
           </div>
