@@ -247,7 +247,7 @@ const ChallengeStatsDashboard: React.FC<ChallengeStatsDashboardProps> = ({
         </div>
       </div>
       
-      <div className="flex items-center justify-between text-sm text-gray-400">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm text-gray-400 gap-2">
         <div className="flex items-center space-x-1">
           <Calendar className="w-4 h-4" />
           <span>

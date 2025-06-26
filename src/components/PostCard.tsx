@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, MessageCircle, Share, Bookmark, Play, ExternalLink, Github, CheckCircle, Edit, MoreHorizontal } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -26,6 +26,7 @@ const PostCard: React.FC<{
   const [post, setPost] = useState(initialPost);
   const [isLiked, setIsLiked] = useState(post.user_liked || false);
   const [isSaved, setIsSaved] = useState(false);
+  const [bookmarkId, setBookmarkId] = useState<string | null>(null);
   const [showComments, setShowComments] = useState(false);
   const [showPlayground, setShowPlayground] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -37,10 +38,9 @@ const PostCard: React.FC<{
   const [inFeedIsRunning, setInFeedIsRunning] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes_count);
   const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
-  const [bookmarkId, setBookmarkId] = useState<string | null>(null);
 
   // Check if post is bookmarked on component mount
-  React.useEffect(() => {
+  useEffect(() => {
     if (user) {
       checkIfBookmarked();
     }
