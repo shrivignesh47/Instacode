@@ -7,7 +7,6 @@ import DailyProblemWidget from '../components/DailyProblemWidget';
 import ChallengeStatsDashboard from '../components/ChallengeStatsDashboard';
 import { supabase, type PostWithUser } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
-import DailyProblemWidget from '../components/DailyProblemWidget';
 
 const HomePage = () => {
   const { user } = useAuth();
@@ -371,9 +370,6 @@ const HomePage = () => {
         <div className="space-y-6">
           {/* Daily Challenge Widget */}
           <DailyChallengeWidget />
-          
-          {/* Daily Problem Widget */}
-          <DailyProblemWidget />
           
           {/* Challenge Stats Dashboard */}
           {user && <ChallengeStatsDashboard isCompact={true} />}
