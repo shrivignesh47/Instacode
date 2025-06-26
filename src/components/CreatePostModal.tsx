@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Code, Image, Video, FolderOpen } from 'lucide-react';
+import { X, Code, Image, Video, FolderOpen, Plus } from 'lucide-react';
 import CodeEditor from './CodeEditor';
 import FileUpload from './FileUpload';
 import { getSupportedLanguages } from '../utils/codeRunner';
@@ -45,6 +45,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const supportedLanguages = getSupportedLanguages();
 
@@ -130,7 +131,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         mediaUrl = await uploadFileWithProgress(
           fileToUpload, 
           postType === 'image' ? 'images' : 'videos',
-          (progress: number) => {
+          (progress) => {
             // Map upload progress to 30-70% of total progress
             const mappedProgress = 30 + (progress * 0.4);
             setUploadProgress(mappedProgress);
@@ -146,7 +147,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         projectImageUrl = await uploadFileWithProgress(
           compressedProjectImage, 
           'projects',
-          (progress: number) => {
+          (progress) => {
             // Map upload progress to 75-85% of total progress
             const mappedProgress = 75 + (progress * 0.1);
             setUploadProgress(mappedProgress);
@@ -185,7 +186,6 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         if (postType === 'video' && codeContent) {
           postData.code_content = codeContent;
           postData.code_language = codeLanguage;
-          postData.type = 'coding_video'; // Special type for coding tutorial videos
         }
       }
 
@@ -201,6 +201,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
       }
 
       setUploadProgress(100);
+      setSuccess('Post created successfully!');
       console.log('Post created successfully:', data);
 
       // Reset form
@@ -221,7 +222,10 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         onPostCreated();
       }
 
-      onClose();
+      // Close modal after a short delay to show success message
+      setTimeout(() => {
+        onClose();
+      }, 1500);
     } catch (err) {
       console.error('Error creating post:', err);
       setError(err instanceof Error ? err.message : 'Failed to create post. Please try again.');
@@ -302,6 +306,13 @@ print("Doubled numbers:", doubled)`,
           {error && (
             <div className="bg-red-900 bg-opacity-50 border border-red-500 rounded-lg p-4">
               <p className="text-red-200 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {success && (
+            <div className="bg-green-900 bg-opacity-50 border border-green-500 rounded-lg p-4">
+              <p className="text-green-200 text-sm">{success}</p>
             </div>
           )}
 

@@ -1,12 +1,13 @@
-
 import React, { useEffect, useState } from 'react';
 import { X, ChevronRight } from 'lucide-react';
 import DailyChallengeCard from './DailyChallengeCard';
+import DailyProblemWidget from './DailyProblemWidget';
 
 interface RightSidebarProps {
   isCollapsed: boolean;
   isMobile?: boolean;
   onClose?: () => void;
+  onToggleCollapse?: () => void;
   screenSize: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 }
 
@@ -79,6 +80,9 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       <div className="p-4 space-y-4">
         {/* Daily Challenge Section */}
         <DailyChallengeCard />
+        
+        {/* Daily Problem Section */}
+        <DailyProblemWidget />
 
         {/* Weekly Contests Section */}
         <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">

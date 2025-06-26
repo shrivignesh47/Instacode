@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Send, User, Loader } from 'lucide-react';
+import { X, Search, Send, User, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import type { PostWithUser } from '../lib/supabaseClient';
@@ -30,6 +30,7 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
   const [message, setMessage] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -129,15 +130,15 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
   const getDefaultShareMessage = () => {
     switch (post.type) {
       case "code":
-        return "Shared a code with compiler";
+        return "Check out this code snippet";
       case "project":
-        return "Shared a project";
+        return `Check out this project: ${post.project_title || 'Project'}`;
       case "image":
-        return "Shared an image";
+        return "Check out this image";
       case "video":
-        return "Shared a video";
+        return "Check out this video";
       default:
-        return "Shared a post";
+        return "Check out this post";
     }
   };
 
@@ -145,11 +146,12 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
     if (selectedUsers.length === 0) return;
 
     setIsSending(true);
+    setSendSuccess(false);
     try {
       // Send post to each selected user
       for (const selectedUser of selectedUsers) {
         // Get or create conversation
-        const { data: conversationData, error: convError } = await supabase
+        const { data: conversationId, error: convError } = await supabase
           .rpc('get_or_create_conversation', {
             user1_id: user?.id,
             user2_id: selectedUser.id
@@ -164,7 +166,7 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
         const { error: messageError } = await supabase
           .from('messages')
           .insert({
-            conversation_id: conversationData,
+            conversation_id: conversationId,
             sender_id: user?.id,
             content: message || getDefaultShareMessage(),
             message_type: 'post_share',
@@ -176,11 +178,18 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
         }
       }
 
-      // Reset form and close modal
-      setSelectedUsers([]);
-      setMessage('');
-      setSearchQuery('');
-      onClose();
+      // Show success message
+      setSendSuccess(true);
+      
+      // Reset form after 2 seconds
+      setTimeout(() => {
+        // Reset form and close modal
+        setSelectedUsers([]);
+        setMessage('');
+        setSearchQuery('');
+        onClose();
+      }, 2000);
+      
     } catch (error) {
       console.error('Error sharing post:', error);
     } finally {
@@ -268,7 +277,7 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
           <div className="p-4">
             {isSearching ? (
               <div className="flex items-center justify-center py-8">
-                <Loader className="w-5 h-5 text-purple-500 animate-spin mr-2" />
+                <Loader2 className="w-5 h-5 text-purple-500 animate-spin mr-2" />
                 <span className="text-gray-400">Searching...</span>
               </div>
             ) : displayUsers.length > 0 ? (
@@ -334,23 +343,29 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
 
         {/* Send Button */}
         <div className="p-4 border-t border-gray-700">
-          <button
-            onClick={handleSendPost}
-            disabled={selectedUsers.length === 0 || isSending}
-            className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
-          >
-            {isSending ? (
-              <>
-                <Loader className="w-4 h-4 animate-spin" />
-                <span>Sending...</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                <span>Send to {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''}</span>
-              </>
-            )}
-          </button>
+          {sendSuccess ? (
+            <div className="w-full bg-green-600 text-white py-3 rounded-lg font-medium flex items-center justify-center">
+              <span>Sent successfully!</span>
+            </div>
+          ) : (
+            <button
+              onClick={handleSendPost}
+              disabled={selectedUsers.length === 0 || isSending}
+              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+            >
+              {isSending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Sending...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  <span>Send to {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''}</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

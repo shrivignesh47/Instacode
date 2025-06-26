@@ -13,6 +13,8 @@ export interface RealtimeChatMessage {
   content: string;
   message_type: 'text' | 'post_share' | 'image' | 'file';
   shared_post_id?: string;
+  shared_post?: any;
+  file_url?: string;
   created_at: string;
   is_read?: boolean;
   sender: {
@@ -48,8 +50,20 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
           content,
           message_type,
           shared_post_id,
+          file_url,
           created_at,
-          profiles:profiles!messages_sender_id_fkey(username, avatar_url)
+          profiles:profiles!messages_sender_id_fkey(username, avatar_url),
+          posts:posts!messages_shared_post_id_fkey(
+            id,
+            type,
+            content,
+            code_language,
+            code_content,
+            project_title,
+            project_description,
+            media_url,
+            profiles:profiles!posts_user_id_fkey(username, avatar_url)
+          )
         `)
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true });
@@ -70,6 +84,12 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
       const formattedMessages: RealtimeChatMessage[] = data.map(msg => {
         // Handle both array and object responses from Supabase
         const senderProfile = Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles;
+        const postData = Array.isArray(msg.posts) ? msg.posts[0] : msg.posts;
+
+        const sharedPost = postData ? {
+          ...postData,
+          profiles: Array.isArray(postData.profiles) ? postData.profiles[0] : postData.profiles
+        } : undefined;
         
         return {
           id: msg.id,
@@ -78,10 +98,12 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
           content: msg.content,
           message_type: msg.message_type,
           shared_post_id: msg.shared_post_id,
-          created_at: msg.created_at,
+          shared_post: sharedPost,
+          file_url: msg.file_url,
           is_read: false,
+          created_at: msg.created_at,
           sender: {
-            username: senderProfile?.username || 'Unknown User',
+            username: senderProfile?.username || 'Unknown',
             avatar_url: senderProfile?.avatar_url || ''
           }
         };
@@ -89,69 +111,57 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
 
       console.log('Formatted messages:', formattedMessages);
       setMessages(formattedMessages);
+      await markMessagesAsRead(conversationId);
     } catch (error) {
-      console.error('Exception in loadMessages:', error);
+      console.error('Error loading messages:', error);
     }
   }, [conversationId]);
 
-  // Auto-load messages when conversationId changes
-  useEffect(() => {
-    if (conversationId && user) {
-      console.log('Auto-loading messages for conversation:', conversationId);
-      // Clear existing messages first
-      setMessages([]);
-      // Load messages for the new conversation
-      loadMessages();
-    } else {
-      // Clear messages if no conversation is selected
-      setMessages([]);
+  const markMessagesAsRead = async (conversationId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .rpc('mark_messages_as_read', {
+          conv_id: conversationId,
+          user_id: user.id
+        });
+
+      if (error) {
+        console.error('Error marking messages as read:', error);
+      }
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
     }
-  }, [conversationId, user, loadMessages]);
+  };
 
-  useEffect(() => {
-    if (!conversationId || !user) return;
+  const addMessage = useCallback((message: RealtimeChatMessage) => {
+    setMessages(prev => {
+      const exists = prev.find(msg => msg.id === message.id);
+      if (exists) {
+        console.log('Message already exists, not adding duplicate');
+        return prev;
+      }
+      console.log('Adding new message to UI');
+      return [...prev, message];
+    });
+  }, []);
 
-    const channelName = `chat_${conversationId}`;
-    const newChannel = supabase.channel(channelName);
+  const updateMessage = useCallback((updatedMessage: any) => {
+    setMessages(prev => 
+      prev.map(msg => 
+        msg.id === updatedMessage.id 
+          ? { ...msg, ...updatedMessage }
+          : msg
+      )
+    );
+  }, []);
 
-    newChannel
-      .on('broadcast', { event: EVENT_MESSAGE_TYPE }, (payload) => {
-        console.log('Received real-time message:', payload);
-        const newMessage = payload.payload as RealtimeChatMessage;
-        setMessages((current) => {
-          // Check if message already exists to prevent duplicates
-          const exists = current.find(msg => msg.id === newMessage.id);
-          if (exists) {
-            console.log('Message already exists, skipping duplicate');
-            return current;
-          }
-          console.log('Adding new message to UI');
-          return [...current, newMessage];
-        });
-      })
-      .subscribe(async (status) => {
-        console.log('Realtime channel status:', status);
-        setIsConnected(status === 'SUBSCRIBED');
-      });
-
-    setChannel(newChannel);
-
-    return () => {
-      console.log('Cleaning up realtime channel');
-      supabase.removeChannel(newChannel);
-      setIsConnected(false);
-    };
-  }, [conversationId, user]);
-
-  const sendMessage = useCallback(
-    async (content: string) => {
+  return { 
+    messages, 
+    sendMessage: async (content: string) => {
       if (!channel || !isConnected || !user || !conversationId) {
-        console.warn('Cannot send message - missing requirements:', {
-          hasChannel: !!channel,
-          isConnected,
-          hasUser: !!user,
-          hasConversationId: !!conversationId
-        });
+        console.warn('Cannot send message - missing requirements');
         return;
       }
 
@@ -225,12 +235,6 @@ export function useRealtimeChat({ conversationId }: UseRealtimeChatProps) {
         console.error('Error in sendMessage:', error);
       }
     },
-    [channel, isConnected, user, conversationId]
-  );
-
-  return { 
-    messages, 
-    sendMessage, 
     isConnected, 
     loadMessages,
     setMessages 

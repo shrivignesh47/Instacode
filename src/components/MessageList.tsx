@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
-import { Check, CheckCheck } from 'lucide-react';
+import { useCallback, useEffect } from 'react';
+import { Check, CheckCheck, Code, Image, Video, FolderOpen, ExternalLink } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useChatScroll } from '../hooks/useChatScroll';
+import { Link } from 'react-router-dom';
 
 interface Message {
   id: string;
@@ -10,6 +11,8 @@ interface Message {
   content: string;
   message_type: 'text' | 'post_share' | 'image' | 'file';
   shared_post_id?: string;
+  shared_post?: any;
+  file_url?: string;
   created_at: string;
   is_read?: boolean;
   sender: {
@@ -43,6 +46,59 @@ const MessageList = ({ messages }: MessageListProps) => {
     }
   };
 
+  const renderSharedPost = (message: Message) => {
+    if (!message.shared_post) return null;
+    
+    const post = message.shared_post;
+    const postType = post.type;
+    
+    return (
+      <div className="mt-2 p-3 bg-gray-700 rounded-lg">
+        <div className="flex items-center space-x-2 mb-2">
+          {postType === 'code' && <Code className="w-4 h-4 text-purple-400" />}
+          {postType === 'image' && <Image className="w-4 h-4 text-blue-400" />}
+          {postType === 'video' && <Video className="w-4 h-4 text-red-400" />}
+          {postType === 'project' && <FolderOpen className="w-4 h-4 text-green-400" />}
+          <span className="text-xs text-gray-300 capitalize">{postType} Post</span>
+        </div>
+        
+        {post.media_url && (postType === 'image' || postType === 'video') && (
+          <div className="mb-2 rounded overflow-hidden">
+            {postType === 'image' ? (
+              <img src={post.media_url} alt="Shared content" className="w-full h-auto max-h-40 object-cover" />
+            ) : (
+              <video src={post.media_url} className="w-full h-auto max-h-40" controls />
+            )}
+          </div>
+        )}
+        
+        {postType === 'code' && post.code_content && (
+          <div className="mb-2 p-2 bg-gray-800 rounded font-mono text-xs text-gray-300 max-h-32 overflow-y-auto">
+            <pre>{post.code_content.substring(0, 200)}{post.code_content.length > 200 ? '...' : ''}</pre>
+            <div className="mt-1 text-xs text-purple-400">{post.code_language}</div>
+          </div>
+        )}
+        
+        {postType === 'project' && (
+          <div className="mb-2">
+            <div className="font-medium text-white text-sm">{post.project_title}</div>
+            {post.project_description && (
+              <div className="text-xs text-gray-300 mt-1 line-clamp-2">{post.project_description}</div>
+            )}
+          </div>
+        )}
+        
+        <Link 
+          to={`/post/${post.id}`} 
+          className="flex items-center text-xs text-purple-400 hover:text-purple-300 mt-1"
+        >
+          <ExternalLink className="w-3 h-3 mr-1" />
+          View Post
+        </Link>
+      </div>
+    );
+  };
+
   const renderMessage = (message: Message) => {
     // Enhanced check for message ownership - ensure user.id exists before comparison
     const isOwnMessage = !authLoading && user?.id && user.id === message.sender_id;
@@ -71,6 +127,9 @@ const MessageList = ({ messages }: MessageListProps) => {
               : 'bg-gray-800 text-gray-100 rounded-bl-sm'
           }`}>
             <p className="text-sm lg:text-base break-words leading-relaxed">{message.content}</p>
+            
+            {/* Render shared post if this is a post_share message */}
+            {message.message_type === 'post_share' && renderSharedPost(message)}
           </div>
           
           <div className={`flex items-center mt-1 lg:mt-2 space-x-1 px-2 ${
