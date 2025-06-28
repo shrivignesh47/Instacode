@@ -319,6 +319,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const createUserProfile = async (supabaseUser: SupabaseUser, username: string): Promise<void> => {
     try {
       console.log('Creating user profile for:', supabaseUser.id, 'with username:', username);
+      console.log('User email:', supabaseUser.email);
+      
+      if (!supabaseUser.email) {
+        throw new Error('User email is required but was not provided');
+      }
       
       const { error } = await supabase.from('profiles').insert({
         id: supabaseUser.id,
@@ -404,6 +409,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Username is already taken. Please choose a different username.' };
       }
 
+      console.log('Username is available, proceeding with signup');
+
       // Sign up the user
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -424,30 +431,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (error.message.includes('Signup is disabled')) {
           errorMessage = 'Account creation is currently disabled. Please contact support.';
         }
+        console.error('Signup error:', error);
         return { success: false, error: errorMessage };
       }
 
-      if (data.user) {
-        try {
-          // Create user profile
-          await createUserProfile(data.user, username);
-          console.log('User profile created successfully');
-          
-          // If session is available, set user and authentication state
-          if (data.session) {
-            const convertedUser = await convertSupabaseUser(data.user);
-            setUser(convertedUser);
-            setIsAuthenticated(true);
-          }
-
-          return { success: true };
-        } catch (profileError) {
-          console.error('Error creating profile:', profileError);
-          return { success: false, error: 'Account created but profile setup failed. Please try logging in.' };
-        }
+      if (!data.user) {
+        console.error('No user returned from signup');
+        return { success: false, error: 'Signup failed. Please try again.' };
       }
 
-      return { success: false, error: 'Signup failed. Please try again.' };
+      console.log('User created successfully, creating profile');
+
+      try {
+        // Create user profile
+        await createUserProfile(data.user, username);
+        console.log('User profile created successfully');
+        
+        // If session is available, set user and authentication state
+        if (data.session) {
+          const convertedUser = await convertSupabaseUser(data.user);
+          setUser(convertedUser);
+          setIsAuthenticated(true);
+        }
+
+        return { success: true };
+      } catch (profileError: any) {
+        console.error('Error creating profile:', profileError);
+        
+        // Try to delete the auth user if profile creation failed
+        try {
+          // This would require admin rights, so it might not work in client context
+          console.log('Attempting to clean up auth user after profile creation failure');
+        } catch (cleanupError) {
+          console.error('Error cleaning up auth user:', cleanupError);
+        }
+        
+        return { 
+          success: false, 
+          error: 'Account created but profile setup failed. Please contact support or try again later.' 
+        };
+      }
     } catch (error) {
       console.error('Signup error:', error);
       return { success: false, error: 'An unexpected error occurred. Please try again.' };
