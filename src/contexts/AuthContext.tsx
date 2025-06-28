@@ -272,15 +272,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return [];
       }
 
-      const { data: profiles, error: searchError } = await supabase
+      const { data: profiles, error } = await supabase
         .from('profiles')
         .select('*')
         .or(`username.ilike.%${query}%,email.ilike.%${query}%`)
         .neq('id', user?.id) // Exclude current user
         .limit(10);
 
-      if (searchError) {
-        console.error('Error searching users:', searchError);
+      if (error) {
+        console.error('Error searching users:', error);
         return [];
       }
 
@@ -316,19 +316,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const isUsernameAvailable = async (username: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', username)
+        .single();
+
+      if (error && error.code === 'PGRST116') {
+        return true;
+      }
+      return !data;
+    } catch (error) {
+      console.error('Error checking username availability:', error);
+      return false;
+    }
+  };
+
   const createUserProfile = async (supabaseUser: SupabaseUser, username: string): Promise<void> => {
     try {
-      console.log('Creating user profile for:', supabaseUser.id, 'with username:', username);
-      console.log('User email:', supabaseUser.email);
-      
-      if (!supabaseUser.email) {
-        throw new Error('User email is required but was not provided');
-      }
-      
       const { error } = await supabase.from('profiles').insert({
         id: supabaseUser.id,
         username,
-        email: supabaseUser.email,
+        email: supabaseUser.email || '',
         avatar_url: 'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150',
         bio: 'New developer on InstaCode!',
         followers_count: 0,
@@ -346,8 +357,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error creating user profile:', error);
         throw error;
       }
-      
-      console.log('Profile created successfully');
     } catch (error) {
       console.error('Error in createUserProfile:', error);
       throw error;
@@ -393,25 +402,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      // Check if username is available
-      const { data: existingUser, error: usernameCheckError } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('username', username)
-        .maybeSingle();
-
-      if (usernameCheckError && usernameCheckError.code !== 'PGRST116') {
-        console.error('Error checking username:', usernameCheckError);
-        return { success: false, error: 'Error checking username availability. Please try again.' };
-      }
-
-      if (existingUser) {
+      const usernameAvailable = await isUsernameAvailable(username);
+      if (!usernameAvailable) {
         return { success: false, error: 'Username is already taken. Please choose a different username.' };
       }
 
-      console.log('Username is available, proceeding with signup');
-
-      // Sign up the user
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -431,23 +426,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (error.message.includes('Signup is disabled')) {
           errorMessage = 'Account creation is currently disabled. Please contact support.';
         }
-        console.error('Signup error:', error);
         return { success: false, error: errorMessage };
       }
 
-      if (!data.user) {
-        console.error('No user returned from signup');
-        return { success: false, error: 'Signup failed. Please try again.' };
-      }
+      if (data.user) {
+        try {
+          await createUserProfile(data.user, username);
+        } catch (profileError) {
+          console.error('Error creating profile:', profileError);
+        }
 
-      console.log('User created successfully, creating profile');
-
-      try {
-        // Create user profile
-        await createUserProfile(data.user, username);
-        console.log('User profile created successfully');
-        
-        // If session is available, set user and authentication state
         if (data.session) {
           const convertedUser = await convertSupabaseUser(data.user);
           setUser(convertedUser);
@@ -455,22 +443,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         return { success: true };
-      } catch (profileError: any) {
-        console.error('Error creating profile:', profileError);
-        
-        // Try to delete the auth user if profile creation failed
-        try {
-          // This would require admin rights, so it might not work in client context
-          console.log('Attempting to clean up auth user after profile creation failure');
-        } catch (cleanupError) {
-          console.error('Error cleaning up auth user:', cleanupError);
-        }
-        
-        return { 
-          success: false, 
-          error: 'Account created but profile setup failed. Please contact support or try again later.' 
-        };
       }
+
+      return { success: false, error: 'Signup failed. Please try again.' };
     } catch (error) {
       console.error('Signup error:', error);
       return { success: false, error: 'An unexpected error occurred. Please try again.' };
