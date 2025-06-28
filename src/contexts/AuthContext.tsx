@@ -272,15 +272,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return [];
       }
 
-      const { data: profiles, error } = await supabase
+      const { data: profiles, error: searchError } = await supabase
         .from('profiles')
         .select('*')
         .or(`username.ilike.%${query}%,email.ilike.%${query}%`)
         .neq('id', user?.id) // Exclude current user
         .limit(10);
 
-      if (error) {
-        console.error('Error searching users:', error);
+      if (searchError) {
+        console.error('Error searching users:', searchError);
         return [];
       }
 
