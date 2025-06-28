@@ -316,30 +316,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const isUsernameAvailable = async (username: string): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('username', username)
-        .single();
-
-      if (error && error.code === 'PGRST116') {
-        return true;
-      }
-      return !data;
-    } catch (error) {
-      console.error('Error checking username availability:', error);
-      return false;
-    }
-  };
-
   const createUserProfile = async (supabaseUser: SupabaseUser, username: string): Promise<void> => {
     try {
+      console.log('Creating user profile for:', supabaseUser.id, 'with username:', username);
+      
       const { error } = await supabase.from('profiles').insert({
         id: supabaseUser.id,
         username,
-        email: supabaseUser.email || '',
+        email: supabaseUser.email,
         avatar_url: 'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150',
         bio: 'New developer on InstaCode!',
         followers_count: 0,
@@ -357,6 +341,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error creating user profile:', error);
         throw error;
       }
+      
+      console.log('Profile created successfully');
     } catch (error) {
       console.error('Error in createUserProfile:', error);
       throw error;
@@ -402,11 +388,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      const usernameAvailable = await isUsernameAvailable(username);
-      if (!usernameAvailable) {
+      // Check if username is available
+      const { data: existingUser, error: usernameCheckError } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', username)
+        .maybeSingle();
+
+      if (usernameCheckError && usernameCheckError.code !== 'PGRST116') {
+        console.error('Error checking username:', usernameCheckError);
+        return { success: false, error: 'Error checking username availability. Please try again.' };
+      }
+
+      if (existingUser) {
         return { success: false, error: 'Username is already taken. Please choose a different username.' };
       }
 
+      // Sign up the user
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -431,18 +429,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.user) {
         try {
+          // Create user profile
           await createUserProfile(data.user, username);
+          console.log('User profile created successfully');
+          
+          // If session is available, set user and authentication state
+          if (data.session) {
+            const convertedUser = await convertSupabaseUser(data.user);
+            setUser(convertedUser);
+            setIsAuthenticated(true);
+          }
+
+          return { success: true };
         } catch (profileError) {
           console.error('Error creating profile:', profileError);
+          return { success: false, error: 'Account created but profile setup failed. Please try logging in.' };
         }
-
-        if (data.session) {
-          const convertedUser = await convertSupabaseUser(data.user);
-          setUser(convertedUser);
-          setIsAuthenticated(true);
-        }
-
-        return { success: true };
       }
 
       return { success: false, error: 'Signup failed. Please try again.' };
