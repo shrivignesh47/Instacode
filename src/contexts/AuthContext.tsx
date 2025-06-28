@@ -322,11 +322,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('profiles')
         .select('username')
         .eq('username', username)
-        .single();
+        .maybeSingle(); // Changed from .single() to .maybeSingle()
 
-      if (error && error.code === 'PGRST116') {
-        return true;
+      if (error) {
+        console.error('Error checking username availability:', error);
+        return false;
       }
+      
+      // If data is null, username is available
       return !data;
     } catch (error) {
       console.error('Error checking username availability:', error);
@@ -342,6 +345,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: supabaseUser.email || '',
         avatar_url: 'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150',
         bio: 'New developer on InstaCode!',
+        github_url: '',
+        linkedin_url: '',
+        twitter_url: '',
+        website: '',
+        location: '',
+        display_name: username,
         followers_count: 0,
         following_count: 0,
         posts_count: 0,
@@ -434,6 +443,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await createUserProfile(data.user, username);
         } catch (profileError) {
           console.error('Error creating profile:', profileError);
+          // Return a more specific error message
+          return { success: false, error: 'Failed to create user profile. Please try again.' };
         }
 
         if (data.session) {
