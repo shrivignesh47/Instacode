@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { Home, Search, PlusSquare, MessageSquare, User } from 'lucide-react-native';
+import { Home, Search, SquarePlus as PlusSquare, MessageSquare, User } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
