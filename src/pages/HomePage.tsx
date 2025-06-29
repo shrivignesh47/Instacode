@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Code, Image, Video, FolderOpen } from 'lucide-react';
 import PostCard from '../components/PostCard';
 import CreatePostModal from '../components/CreatePostModal';
-import DailyChallengeWidget from '../components/DailyProblemWidget';
+import DailyProblemWidget from '../components/DailyProblemWidget';
 import DailyProblemWidget from '../components/DailyProblemWidget';
 import ChallengeStatsDashboard from '../components/ChallengeStatsDashboard';
 import { supabase, type PostWithUser } from '../lib/supabaseClient';
@@ -247,18 +247,6 @@ const HomePage = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-0">
-      {/* Bolt.new Badge */}
-      <div className="fixed top-4 right-4 z-50">
-        <a href="https://bolt.new/?rid=ane6ac" target="_blank" rel="noopener noreferrer" className="block transition-all duration-300 hover:shadow-2xl">
-          <img 
-            src="https://storage.bolt.army/logotext_poweredby_360w.png" 
-            alt="Powered by Bolt.new badge" 
-            className="h-8 md:h-10 w-auto shadow-lg opacity-90 hover:opacity-100 bolt-badge bolt-badge-intro" 
-            onAnimationEnd={(e) => e.currentTarget.classList.add('animated')} 
-          />
-        </a>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Feed - 2/3 width on large screens */}
         <div className="lg:col-span-2">
@@ -369,7 +357,7 @@ const HomePage = () => {
         {/* Right Sidebar - 1/3 width on large screens */}
         <div className="space-y-6">
           {/* Daily Challenge Widget */}
-          <DailyChallengeWidget />
+          <DailyProblemWidget />
           
           {/* Challenge Stats Dashboard */}
           {user && <ChallengeStatsDashboard isCompact={true} />}
@@ -383,6 +371,18 @@ const HomePage = () => {
         onPostCreated={handlePostCreated}
         initialType={selectedPostType}
       />
+
+      {/* Bolt.new Badge - Bottom Right */}
+      <div className="fixed bottom-4 right-4 z-50">
+        <a href="https://bolt.new/?rid=ane6ac" target="_blank" rel="noopener noreferrer" className="block transition-all duration-300 hover:shadow-2xl">
+          <img 
+            src="https://storage.bolt.army/logotext_poweredby_360w.png" 
+            alt="Powered by Bolt.new badge" 
+            className="h-8 md:h-10 w-auto shadow-lg opacity-90 hover:opacity-100 bolt-badge bolt-badge-intro" 
+            onAnimationEnd={(e) => e.currentTarget.classList.add('animated')} 
+          />
+        </a>
+      </div>
     </div>
   );
 };
