@@ -48,15 +48,25 @@ const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
           .from('user_ai_access')
           .select('last_used, time_remaining')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
         
-        if (error || !data) {
+        if (error) {
+          console.log('Error fetching AI access state:', error.message);
           // If not in database, check localStorage
           const savedState = localStorage.getItem(`taurus_access_${user.id}`);
           if (savedState) {
             const parsedState = JSON.parse(savedState);
             setAccessState(parsedState);
+          } else {
+            // Create a new record if none exists
+            await createInitialAccessState();
           }
+          return;
+        }
+        
+        if (!data) {
+          // Create a new record if none exists
+          await createInitialAccessState();
           return;
         }
         
@@ -66,10 +76,12 @@ const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
         
         if (lastUsed && (now.getTime() - lastUsed.getTime() >= COOLDOWN_PERIOD)) {
           // Reset if 24 hours have passed
-          setAccessState({
+          const newState = {
             lastUsed: null,
             timeRemaining: MAX_SESSION_TIME
-          });
+          };
+          setAccessState(newState);
+          await saveAccessState(newState);
         } else {
           // Use stored state
           setAccessState({
@@ -89,6 +101,32 @@ const TaurusAIChat: React.FC<TaurusAIChatProps> = ({ isOpen, onClose }) => {
     
     loadAccessState();
   }, [user]);
+
+  // Create initial access state record
+  const createInitialAccessState = async () => {
+    if (!user) return;
+    
+    const initialState = {
+      lastUsed: null,
+      timeRemaining: MAX_SESSION_TIME
+    };
+    
+    try {
+      await supabase
+        .from('user_ai_access')
+        .insert({
+          user_id: user.id,
+          last_used: null,
+          time_remaining: MAX_SESSION_TIME
+        });
+      
+      setAccessState(initialState);
+    } catch (err) {
+      console.error('Error creating initial access state:', err);
+      // Still set the state in memory even if DB insert fails
+      setAccessState(initialState);
+    }
+  };
 
   // Save access state
   const saveAccessState = async (state: UserAccessState) => {
