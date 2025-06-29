@@ -197,6 +197,13 @@ const LoginPage = () => {
             <h1 className="text-4xl font-bold text-white mb-2">InstaCode</h1>
             <p className="text-purple-200">Where developers connect, share, and grow together</p>
           </div>
+          
+          {/* Contact Information */}
+          <div className="text-center mt-6">
+            <p className="text-gray-400 text-sm">
+              Need help? Contact us at <a href="mailto:shrivigneshdev@gmail.com" className="text-purple-400 hover:text-purple-300">shrivigneshdev@gmail.com</a>
+            </p>
+          </div>
         </div>
       </div>
     </div>
