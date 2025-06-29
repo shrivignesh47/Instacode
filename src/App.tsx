@@ -9,6 +9,8 @@ import CreatePage from './pages/CreatePage';
 import CodePlaygroundPage from './pages/CodePlaygroundPage';
 import CodeAnalyserPage from './pages/CodeAnalyserPage';
 import ForumsPage from './pages/ForumsPage';
+import ForumDetailPage from './pages/ForumDetailPage';
+import TopicDetailPage from './pages/TopicDetailPage';
 import CommunitiesPage from './pages/CommunitiesPage';
 import SavedPage from './pages/SavedPage';
 import TrendingPage from './pages/TrendingPage';
@@ -124,6 +126,20 @@ function AppContent() {
         <ProtectedRoute>
           <Layout>
             <ForumsPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/forum/:id" element={
+        <ProtectedRoute>
+          <Layout>
+            <ForumDetailPage />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/topic/:id" element={
+        <ProtectedRoute>
+          <Layout>
+            <TopicDetailPage />
           </Layout>
         </ProtectedRoute>
       } />
