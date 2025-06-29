@@ -372,7 +372,7 @@ const HomePage = () => {
       />
 
       {/* Bolt.new Badge - Bottom Right - Fixed for all screen sizes */}
-      <div className="fixed bottom-14 sm:bottom-7 right-4 z-50">
+      <div className="fixed bottom-13 sm:bottom-7 right-4 z-50">
         <a href="https://bolt.new/?rid=ane6ac" target="_blank" rel="noopener noreferrer" className="block transition-all duration-300 hover:shadow-2xl">
           <img 
             src="https://storage.bolt.army/logotext_poweredby_360w.png" 
