@@ -89,6 +89,18 @@ const SignupPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Bolt.new Badge */}
+      <div className="fixed top-4 right-4 z-50">
+        <a href="https://bolt.new/?rid=ane6ac" target="_blank" rel="noopener noreferrer" className="block transition-all duration-300 hover:shadow-2xl">
+          <img 
+            src="https://storage.bolt.army/logotext_poweredby_360w.png" 
+            alt="Powered by Bolt.new badge" 
+            className="h-8 md:h-10 w-auto shadow-lg opacity-90 hover:opacity-100 bolt-badge bolt-badge-intro" 
+            onAnimationEnd={(e) => e.currentTarget.classList.add('animated')} 
+          />
+        </a>
+      </div>
+
       {/* Background decorative elements */}
       <div className="absolute top-20 left-20">
         <Sparkles className="text-yellow-400 w-6 h-6 animate-pulse" />

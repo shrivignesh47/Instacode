@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Code, Image, Video, FolderOpen } from 'lucide-react';
 import PostCard from '../components/PostCard';
 import CreatePostModal from '../components/CreatePostModal';
-import DailyChallengeWidget from '../components/DailyChallengeWidget';
+import DailyChallengeWidget from '../components/DailyProblemWidget';
 import DailyProblemWidget from '../components/DailyProblemWidget';
 import ChallengeStatsDashboard from '../components/ChallengeStatsDashboard';
 import { supabase, type PostWithUser } from '../lib/supabaseClient';
@@ -245,37 +245,20 @@ const HomePage = () => {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-0">
-        <div className="flex items-center justify-center py-12">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-white text-lg">Loading posts...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-0">
-        <div className="bg-red-900 bg-opacity-50 border border-red-500 rounded-lg p-4 mb-6">
-          <p className="text-red-200">{error}</p>
-          <button
-            onClick={fetchPosts}
-            className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-0">
+      {/* Bolt.new Badge */}
+      <div className="fixed top-4 right-4 z-50">
+        <a href="https://bolt.new/?rid=ane6ac" target="_blank" rel="noopener noreferrer" className="block transition-all duration-300 hover:shadow-2xl">
+          <img 
+            src="https://storage.bolt.army/logotext_poweredby_360w.png" 
+            alt="Powered by Bolt.new badge" 
+            className="h-8 md:h-10 w-auto shadow-lg opacity-90 hover:opacity-100 bolt-badge bolt-badge-intro" 
+            onAnimationEnd={(e) => e.currentTarget.classList.add('animated')} 
+          />
+        </a>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Feed - 2/3 width on large screens */}
         <div className="lg:col-span-2">
@@ -330,7 +313,24 @@ const HomePage = () => {
 
           {/* Posts Feed */}
           <div className="space-y-4 sm:space-y-6">
-            {posts.length === 0 ? (
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-white text-lg">Loading posts...</span>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="bg-red-900 bg-opacity-50 border border-red-500 rounded-lg p-4 mb-6">
+                <p className="text-red-200">{error}</p>
+                <button
+                  onClick={fetchPosts}
+                  className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : posts.length === 0 ? (
               <div className="text-center py-8 sm:py-12">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
                   <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
