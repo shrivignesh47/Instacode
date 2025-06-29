@@ -180,7 +180,7 @@ const CodePostModal: React.FC<CodePostModalProps> = ({ isOpen, onClose, post: in
             onClick={handleProfileClick}
           >
             <img
-              src={post.profiles.avatar_url || 'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150'}
+              src={post.profiles.avatar_url || 'https://ia801307.us.archive.org/1/items/instagram-plain-round/instagram%20dip%20in%20hair.jpg'}
               alt={post.profiles.username}
               className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0"
             />

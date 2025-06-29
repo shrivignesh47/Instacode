@@ -120,7 +120,7 @@ BEGIN
     new.id,
     COALESCE(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
     COALESCE(new.email, ''),
-    'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150',
+    'https://ia801307.us.archive.org/1/items/instagram-plain-round/instagram%20dip%20in%20hair.jpg',
     'New developer on InstaCode!',
     COALESCE(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
     '',
