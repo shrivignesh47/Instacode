@@ -371,13 +371,13 @@ const HomePage = () => {
         initialType={selectedPostType}
       />
 
-      {/* Bolt.new Badge - Bottom Right */}
+      {/* Bolt.new Badge - Bottom Right - Fixed for all screen sizes */}
       <div className="fixed bottom-4 right-4 z-50">
         <a href="https://bolt.new/?rid=ane6ac" target="_blank" rel="noopener noreferrer" className="block transition-all duration-300 hover:shadow-2xl">
           <img 
             src="https://storage.bolt.army/logotext_poweredby_360w.png" 
             alt="Powered by Bolt.new badge" 
-            className="h-8 md:h-10 w-auto shadow-lg opacity-90 hover:opacity-100 bolt-badge bolt-badge-intro" 
+            className="h-8 sm:h-10 w-auto shadow-lg opacity-90 hover:opacity-100 bolt-badge bolt-badge-intro" 
             onAnimationEnd={(e) => e.currentTarget.classList.add('animated')} 
           />
         </a>
