@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, FlatList } from 'react-native';
-import { Settings, Grid, List, MapPin, Globe, Github, Linkedin, Twitter, Edit, LogOut } from 'lucide-react-native';
+import { Settings, Grid2x2 as Grid, List, MapPin, Globe, Github, Linkedin, Twitter, CreditCard as Edit, LogOut } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState('posts');
