@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Send, Loader2, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,6 +32,7 @@ const Comments: React.FC<CommentsProps> = ({
   onCommentsCountChange 
 }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -162,6 +164,10 @@ const Comments: React.FC<CommentsProps> = ({
     return `${Math.floor(diffInSeconds / 604800)}w ago`;
   };
 
+  const handleUserClick = (username: string) => {
+    navigate(`/profile/${username}`);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -203,11 +209,15 @@ const Comments: React.FC<CommentsProps> = ({
                 <img
                   src={comment.profiles.avatar_url || 'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150'}
                   alt={comment.profiles.username}
-                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0 cursor-pointer"
+                  onClick={() => handleUserClick(comment.profiles.username)}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <span className="font-medium text-white text-sm">
+                    <span 
+                      className="font-medium text-white text-sm cursor-pointer hover:text-purple-400"
+                      onClick={() => handleUserClick(comment.profiles.username)}
+                    >
                       {comment.profiles.username}
                     </span>
                     <span className="text-xs text-gray-400">

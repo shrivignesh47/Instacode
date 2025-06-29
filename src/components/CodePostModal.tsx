@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Heart, MessageCircle, Share, Bookmark, Play, Edit, Copy, Save, Loader2 } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -16,6 +17,7 @@ interface CodePostModalProps {
 
 const CodePostModal: React.FC<CodePostModalProps> = ({ isOpen, onClose, post: initialPost, onPostUpdated }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [post, setPost] = useState(initialPost);
   const [isLiked, setIsLiked] = useState(post.user_liked || false);
   const [isSaved, setIsSaved] = useState(false);
@@ -159,6 +161,11 @@ const CodePostModal: React.FC<CodePostModalProps> = ({ isOpen, onClose, post: in
     }
   };
 
+  const handleProfileClick = () => {
+    onClose();
+    navigate(`/profile/${post.profiles.username}`);
+  };
+
   if (!isOpen) return null;
 
   const isOwner = user && user.id === post.user_id;
@@ -168,7 +175,10 @@ const CodePostModal: React.FC<CodePostModalProps> = ({ isOpen, onClose, post: in
       <div className="bg-gray-800 rounded-xl w-full max-w-6xl h-[95vh] sm:h-[90vh] flex flex-col border border-gray-700">
         {/* Header */}
         <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-700 flex-shrink-0">
-          <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+          <div 
+            className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1 cursor-pointer"
+            onClick={handleProfileClick}
+          >
             <img
               src={post.profiles.avatar_url || 'https://images.pexels.com/photos/1716861/pexels-photo-1716861.jpeg?auto=compress&cs=tinysrgb&w=150'}
               alt={post.profiles.username}

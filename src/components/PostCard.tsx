@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Heart, MessageCircle, Share, Bookmark, Play, ExternalLink, Github, CheckCircle, Edit, MoreHorizontal } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -23,6 +24,7 @@ const PostCard: React.FC<{
   onPostDeleted
 }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [post, setPost] = useState(initialPost);
   const [isLiked, setIsLiked] = useState(post.user_liked || false);
   const [isSaved, setIsSaved] = useState(false);
@@ -214,6 +216,12 @@ const PostCard: React.FC<{
     setCommentsCount(count);
   };
 
+  const handleProfileClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/profile/${post.profiles.username}`);
+  };
+
   const isOwner = user && user.id === post.user_id;
 
   return (
@@ -221,7 +229,10 @@ const PostCard: React.FC<{
       <div className="bg-gray-800 rounded-xl overflow-hidden border border-gray-700 mx-1 sm:mx-2 lg:mx-0">
         {/* Header */}
         <div className="p-3 sm:p-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+          <div 
+            className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1 cursor-pointer"
+            onClick={handleProfileClick}
+          >
             <img
               src={post.profiles.avatar_url || 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=150'}
               alt={post.profiles.username}
